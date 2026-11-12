@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="tg"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Clash сервис</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--bg:#14172B;--card:#1F2340;--gold:#F5B83D;--mut:#9AA0C0;--tx:#F4F1E8;--ok:#4CC38A}
+*{box-sizing:border-box}
+body{margin:0;padding:18px 16px 48px;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
+#app{max-width:480px;margin:0 auto}
+h2{font-size:20px;margin:4px 0 14px}
+.mut{color:var(--mut);font-size:13px}.gold{color:var(--gold);font-weight:600}
+.card{background:var(--card);border-radius:14px;padding:14px;margin-bottom:10px;cursor:pointer}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0}
+.tag{font-size:12px;padding:3px 9px;border-radius:7px;background:#14172B;white-space:nowrap}
+.bar{height:8px;border-radius:4px;background:var(--bg);overflow:hidden;margin:8px 0 2px}
+.bar i{display:block;height:100%;background:var(--gold)}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.sv{background:var(--card);border-radius:14px;padding:16px 12px;cursor:pointer}
+.sv.x{background:none;border:1.5px dashed var(--gold)}
+.sv b{display:block;font-size:26px;margin-bottom:6px}
+label{display:block;font-size:13px;color:var(--mut);margin:14px 0 6px}
+input,textarea{width:100%;padding:12px;border:0;border-radius:10px;background:var(--card);color:var(--tx);font:inherit}
+textarea{min-height:80px}
+input[type=file]{padding:10px}
+.btn{width:100%;margin-top:16px;padding:14px;border:0;border-radius:12px;background:var(--gold);color:#14172B;font:600 15px inherit;cursor:pointer}
+.btn.g{background:var(--card);color:var(--tx)}.btn.ok{background:var(--ok);color:#0E2A1D}
+.chk{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--mut)}
+.chk input{width:20px;height:20px;flex:none;margin:0}
+.back{display:inline-block;color:var(--mut);cursor:pointer;margin:0 0 6px}
+.err{color:#FF8A8A;font-size:13px;min-height:1.2em}
+</style></head>
+<body><div id="app"></div>
+<script>
+const API="NEXT_PUBLIC_SUPABASE_URL=https://lvkffuzohzqeqtxryqfl.supabase.com"; // истиноди HTTPS-и бэкенд
+const tg=Telegram.WebApp;tg.ready();tg.expand();
+try{tg.setHeaderColor("#14172B");tg.setBackgroundColor("#14172B")}catch(e){}
+const A=document.getElementById("app"),g=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const api=async(p,b={})=>{const r=await fetch(API+p,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...b,initData:tg.initData})});if(!r.ok)throw new Error(r.status);return r.json()};
+
+const SV={
+ walls:{e:"🧱",t:"Деворҳо",acc:1,f:[["th","Town Hall","number"],["cur","Сатҳи ҳозираи деворҳо","number"],["to","Сатҳи дилхоҳ","number"]]},
+ xp:{e:"⭐",t:"Сатҳи таҷриба",acc:1,f:[["cur","Сатҳи ҳозира","number"],["to","Сатҳи дилхоҳ","number"]]},
+ clan:{e:"👥",t:"Пур кардани клан",f:[["tag","Теги клан","text"],["what","Чӣ пур шавад","text"],["times","Чанд маротиба","number"]]},
+ raid:{e:"⚔️",t:"Рейд ҳамла",acc:1,f:[["tag","Теги клан","text"],["n","Шумораи ҳамла","number"]]},
+ capital:{e:"🏰",t:"Пойтахти клан",acc:1,f:[["hall","Сатҳи Capital Hall","number"],["what","Кадом бино","text"],["to","Сатҳи дилхоҳ","number"]]},
+ custom:{e:"💡",t:"Идеяи худатон",f:[["title","Чӣ мехоҳед","text"],["budget","Буҷет, сомонӣ (ихтиёрӣ)","number",1]]}
+};
+const ST={new:["Нав","#FF8A8A"],priced:["Нарх интизор аст","#F5B83D"],working:["Дар кор","#9DBBFF"],done:["Тайёр","#4CC38A"],rejected:["Рад шуд","#9AA0C0"]};
+const tag=s=>`<span class="tag" style="color:${(ST[s]||ST.new)[1]}">${(ST[s]||ST.new)[0]}</span>`;
+const sv=k=>SV[k]||{e:"",t:k,f:[]};
+const bar=o=>+o.progress_total>0?`<div class="bar"><i style="width:${Math.min(100,Math.round(o.progress_done/o.progress_total*100))}%"></i></div><div class="mut">${+o.progress_done} / ${+o.progress_total}</div>`:"";
+let me=null,orders=[];
+
+async function home(){
+ A.innerHTML='<p class="mut">Бор шуда истодааст…</p>';
+ try{me=me||await api("/api/me");orders=(await api("/api/orders")).orders}
+ catch(e){A.innerHTML='<p>Хато шуд. Барномаро дубора кушоед.</p>';return}
+ const n=orders.filter(o=>o.status=="new").length;
+ A.innerHTML=`<h2>${me.admin?"Панели шумо":"Салом, "+esc(me.name)}</h2>`+
+  (me.admin?`<p class="mut">Дархости нав: <span class="gold">${n}</span> · Ҳамагӣ: ${orders.length}</p>`:"")+
+  (orders.length?orders.map(o=>{const s=sv(o.service);return `<div class="card" onclick="detail(${+o.id})"><div class="row"><b>${s.e} ${esc(s.t)}</b>${tag(o.status)}</div>`+
+   (me.admin?`<div class="mut">@${esc(o.users?.username||o.users?.name||o.user_id)}</div>`:"")+
+   (o.price?`<div class="gold">${+o.price} сомонӣ</div>`:"")+bar(o)+`</div>`}).join(""):'<p class="mut">Ҳоло фармоиш нест.</p>')+
+  (me.admin?"":'<button class="btn" onclick="pick()">+ Дархости нав</button>');
+}
+function pick(){
+ A.innerHTML='<span class="back" onclick="home()">← Бозгашт</span><h2>Хидматро интихоб кунед</h2><div class="grid">'+
+  Object.entries(SV).map(([k,s])=>`<div class="sv${k=="custom"?" x":""}" onclick="form('${k}')"><b>${s.e}</b>${s.t}</div>`).join("")+"</div>";
+}
+function form(k){
+ const s=SV[k];
+ A.innerHTML=`<span class="back" onclick="pick()">← Бозгашт</span><h2>${s.e} ${s.t}</h2>`+
+  s.f.map(([id,l,t])=>`<label>${l}</label><input id="f_${id}" type="${t}" inputmode="${t=="number"?"numeric":"text"}">`).join("")+
+  `<label>Шарҳ</label><textarea id="note"></textarea><label>Скриншот</label><input id="img" type="file" accept="image/*">`+
+  (s.acc?`<label class="chk"><input type="checkbox" id="ok">Мефаҳмам, ки барои ин хидмат аккаунт лозим аст ва Supercell онро манъ мекунад. Хавфи бан бар души ман.</label>`:"")+
+  `<p class="err" id="err"></p><button class="btn" id="go" onclick="send('${k}')">Фиристодан</button>`;
+}
+const shrink=f=>new Promise((res,rej)=>{const i=new Image();i.onload=()=>{const k=Math.min(1,1600/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=i.width*k;c.height=i.height*k;c.getContext("2d").drawImage(i,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",.85))};i.onerror=rej;i.src=URL.createObjectURL(f)});
+async function send(k){
+ const s=SV[k],data={};
+ for(const [id,l,t,opt] of s.f){const v=g("f_"+id).value.trim();if(!v&&!opt){g("err").textContent="Пур кунед: "+l;return}if(v)data[id]=v}
+ if(s.acc&&!g("ok").checked){g("err").textContent="Розигиро тасдиқ кунед";return}
+ g("go").disabled=true;g("err").textContent="Фиристода истодааст…";
+ try{const f=g("img").files[0];
+  await api("/api/orders/create",{service:k,data,note:g("note").value.trim(),image:f?await shrink(f):null});
+  tg.HapticFeedback?.notificationOccurred("success");home()}
+ catch(e){g("err").textContent="Хато шуд. Дубора кӯшиш кунед.";g("go").disabled=false}
+}
+function detail(id){
+ const o=orders.find(x=>x.id==id),s=sv(o.service);
+ const rows=Object.entries(o.data||{}).map(([k,v])=>{const f=(s.f||[]).find(x=>x[0]==k);return `<div class="row"><span class="mut">${esc(f?f[1]:k)}</span><span>${esc(v)}</span></div>`}).join("");
+ let act="";
+ if(me.admin){
+  if(o.status=="new"||o.status=="priced")act=`<label>Нарх, сомонӣ</label><input id="pr" type="number" value="${+o.price||""}"><button class="btn" onclick="setPrice(${+o.id})">Нарх фиристодан</button>`;
+  if(o.status=="working")act=`<label>Прогресс: анҷом ёфт / ҳамагӣ</label><div class="grid"><input id="pd" type="number" value="${+o.progress_done||0}"><input id="pt" type="number" value="${+o.progress_total||0}"></div><button class="btn g" onclick="prog(${+o.id},0)">Навсозии прогресс</button><button class="btn ok" onclick="prog(${+o.id},1)">Тайёр шуд</button>`;
+ }else if(o.status=="priced")act=`<p class="gold">Нарх: ${+o.price} сомонӣ</p><div class="grid"><button class="btn ok" onclick="conf(${+o.id},1)">Тасдиқ</button><button class="btn g" onclick="conf(${+o.id},0)">Рад кардан</button></div>`;
+ A.innerHTML=`<span class="back" onclick="home()">← Бозгашт</span><h2>${s.e} ${esc(s.t)}</h2><div class="row"><span class="mut">Статус</span>${tag(o.status)}</div>`+
+  (me.admin?`<div class="row"><span class="mut">Клиент</span><span>@${esc(o.users?.username||o.users?.name||o.user_id)}</span></div>`:"")+
+  rows+(o.note?`<div class="card" style="cursor:default;margin-top:10px">${esc(o.note)}</div>`:"")+
+  (o.price&&!act?`<div class="row"><span class="mut">Нарх</span><span class="gold">${+o.price} сомонӣ</span></div>`:"")+bar(o)+act;
+}
+const run=async(p,b)=>{try{await api(p,b);home()}catch(e){tg.showAlert("Хато шуд. Дубора кӯшиш кунед.")}};
+function setPrice(id){const v=+g("pr").value;if(v>0)run("/api/orders/price",{id,price:v})}
+function prog(id,fin){run("/api/orders/progress",{id,done:+g("pd").value,total:+g("pt").value,finish:fin})}
+function conf(id,accept){run("/api/orders/confirm",{id,accept})}
+home();
+</script></body></html>
