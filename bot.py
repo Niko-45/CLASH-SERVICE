@@ -3,6 +3,7 @@ SUPABASE_URL, SUPABASE_SERVICE_KEY (калиди service_role, ҳеҷ вақт �
 import os, json, hmac, hashlib, time, base64, asyncio
 from urllib.parse import parse_qsl
 import aiohttp
+from datetime import datetime, timedelta, timezone
 from aiohttp import web
 from aiogram import Bot, Dispatcher
 from aiogram.filters import CommandStart
@@ -94,7 +95,13 @@ async def orders(req):
     p = {"select": "*,users(name,username)", "order": "id.desc", "limit": "100"}
     if not adm:
         p["user_id"] = f"eq.{u['id']}"
-    return web.json_response({"orders": await sb("GET", "orders", p)})
+    rows = await sb("GET", "orders", p)
+    ids = set()
+    if not adm:
+        ids = {r["order_id"] for r in await sb("GET", "reviews", {"select": "order_id", "user_id": f"eq.{u['id']}"})}
+    for o in rows:
+        o["reviewed"] = o["id"] in ids
+    return web.json_response({"orders": rows})
 
 
 @routes.post("/api/orders/create")
@@ -102,6 +109,9 @@ async def create(req):
     b, u, adm = await ctx(req)
     sv = b.get("service")
     if sv not in SERVICES:
+        raise web.HTTPBadRequest()
+    r = await sb("GET", "services", {"key": f"eq.{sv}"})
+    if r and not r[0]["active"]:
         raise web.HTTPBadRequest()
     data = {str(k)[:20]: str(v)[:100] for k, v in list((b.get("data") or {}).items())[:10]}
     note = str(b.get("note", ""))[:800]
@@ -159,6 +169,7 @@ async def progress(req):
              "progress_total": max(0, int(b.get("total", 0)))}
     if b.get("finish"):
         patch["status"] = "done"
+        patch["done_at"] = datetime.now(timezone.utc).isoformat()
     await sb("PATCH", "orders", {"id": f"eq.{o['id']}"}, patch)
     if b.get("finish"):
         await tell(o["user_id"], f"Фармоиши #{o['id']} тайёр шуд!")
@@ -185,6 +196,120 @@ async def chat_send(req):
     to = o["user_id"] if adm else ADMIN_ID
     await tell(to, f"Паём (фармоиши #{o['id']}):\n{text[:200]}\n\nБарномаро кушоед, то ҷавоб диҳед.")
     return web.json_response({"ok": True})
+
+
+async def broadcast(text):
+    users = await sb("GET", "users", {"select": "id", "limit": "5000"})
+    for r in users:
+        if r["id"] != ADMIN_ID:
+            await tell(r["id"], text)
+            await asyncio.sleep(0.05)
+
+
+@routes.post("/api/ann/list")
+async def ann_list(req):
+    await ctx(req)
+    rows = await sb("GET", "announcements", {"order": "pinned.desc,id.desc", "limit": "30"})
+    return web.json_response({"items": rows})
+
+
+@routes.post("/api/ann/create")
+async def ann_create(req):
+    b, u, adm = await ctx(req)
+    if not adm:
+        raise web.HTTPForbidden()
+    title = str(b.get("title", "")).strip()[:100]
+    text = str(b.get("text", "")).strip()[:1000]
+    if not title:
+        raise web.HTTPBadRequest()
+    await sb("POST", "announcements", None, {"title": title, "text": text, "pinned": bool(b.get("pinned"))})
+    asyncio.create_task(broadcast(f"📢 {title}\n\n{text}"[:1000]))
+    return web.json_response({"ok": True})
+
+
+@routes.post("/api/ann/delete")
+async def ann_delete(req):
+    b, u, adm = await ctx(req)
+    if not adm:
+        raise web.HTTPForbidden()
+    await sb("DELETE", "announcements", {"id": f"eq.{int(b['id'])}"})
+    return web.json_response({"ok": True})
+
+
+@routes.post("/api/services")
+async def services(req):
+    await ctx(req)
+    return web.json_response({"items": await sb("GET", "services", {"order": "sort.asc"})})
+
+
+@routes.post("/api/services/update")
+async def services_update(req):
+    b, u, adm = await ctx(req)
+    if not adm or b.get("key") not in SERVICES:
+        raise web.HTTPForbidden()
+    pr = b.get("price")
+    pr = int(pr) if pr not in (None, "") else None
+    await sb("PATCH", "services", {"key": f"eq.{b['key']}"}, {"price": pr, "active": bool(b.get("active"))})
+    return web.json_response({"ok": True})
+
+
+@routes.post("/api/review/create")
+async def review_create(req):
+    b, u, adm = await ctx(req)
+    o = await own_order(b, u["id"], False)
+    if o["status"] != "done":
+        raise web.HTTPBadRequest()
+    rating = min(5, max(1, int(b.get("rating", 5))))
+    text = str(b.get("text", "")).strip()[:500]
+    await sb("POST", "reviews", None, {"order_id": o["id"], "user_id": u["id"], "rating": rating, "text": text})
+    await tell(ADMIN_ID, f"Шарҳи нав барои фармоиши #{o['id']}: {rating}/5\n{text}")
+    return web.json_response({"ok": True})
+
+
+@routes.post("/api/profile")
+async def profile(req):
+    await ctx(req)
+    rv = await sb("GET", "reviews", {"select": "rating,text,users(name)", "order": "id.desc", "limit": "5000"})
+    adm = await sb("GET", "users", {"id": f"eq.{ADMIN_ID}"})
+    done = await sb("GET", "orders", {"select": "id", "status": "eq.done", "limit": "5000"})
+    avg = round(sum(r["rating"] for r in rv) / len(rv), 1) if rv else 0
+    return web.json_response({
+        "name": adm[0]["name"] if adm else "Мутахассис", "avg": avg, "count": len(rv), "done": len(done),
+        "reviews": [{"rating": r["rating"], "text": r["text"], "name": (r.get("users") or {}).get("name", "")}
+                    for r in rv[:20]]})
+
+
+def ts(x):
+    return datetime.fromisoformat(x.replace("Z", "+00:00"))
+
+
+@routes.post("/api/finance")
+async def finance(req):
+    b, u, adm = await ctx(req)
+    if not adm:
+        raise web.HTTPForbidden()
+    rows = await sb("GET", "orders", {"select": "status,price,created_at,done_at",
+                                      "price": "not.is.null", "limit": "5000"})
+    now = datetime.now(timezone.utc)
+    week = month = total = wait = cnt = 0
+    days = [0] * 7
+    for r in rows:
+        pr = r["price"]
+        if r["status"] == "done":
+            t = ts(r.get("done_at") or r["created_at"])
+            total += pr
+            cnt += 1
+            if now - t <= timedelta(days=30):
+                month += pr
+            if now - t <= timedelta(days=7):
+                week += pr
+            d = (now.date() - t.date()).days
+            if 0 <= d < 7:
+                days[6 - d] += pr
+        elif r["status"] == "working":
+            wait += pr
+    return web.json_response({"week": week, "month": month, "total": total,
+                              "wait": wait, "count": cnt, "days": days})
 
 
 @web.middleware
