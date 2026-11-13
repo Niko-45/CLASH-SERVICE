@@ -165,6 +165,28 @@ async def progress(req):
     return web.json_response({"ok": True})
 
 
+@routes.post("/api/chat/list")
+async def chat_list(req):
+    b, u, adm = await ctx(req)
+    o = await own_order(b, u["id"], adm)
+    rows = await sb("GET", "messages", {"order_id": f"eq.{o['id']}", "order": "id.asc", "limit": "200"})
+    return web.json_response({"messages": [
+        {"id": m["id"], "mine": m["sender_id"] == u["id"], "text": m["text"]} for m in rows]})
+
+
+@routes.post("/api/chat/send")
+async def chat_send(req):
+    b, u, adm = await ctx(req)
+    o = await own_order(b, u["id"], adm)
+    text = str(b.get("text", "")).strip()[:1000]
+    if not text:
+        raise web.HTTPBadRequest()
+    await sb("POST", "messages", None, {"order_id": o["id"], "sender_id": u["id"], "text": text})
+    to = o["user_id"] if adm else ADMIN_ID
+    await tell(to, f"Паём (фармоиши #{o['id']}):\n{text[:200]}\n\nБарномаро кушоед, то ҷавоб диҳед.")
+    return web.json_response({"ok": True})
+
+
 @web.middleware
 async def cors(req, handler):
     try:
