@@ -8,7 +8,8 @@ from aiohttp import web
 from aiogram import Bot, Dispatcher
 from aiogram.filters import CommandStart
 from aiogram.types import (Message, BufferedInputFile, WebAppInfo,
-                           InlineKeyboardMarkup, InlineKeyboardButton)
+                           InlineKeyboardMarkup, InlineKeyboardButton,
+                           MenuButtonWebApp)
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 ADMIN_ID = int(os.environ["ADMIN_CHAT_ID"])
@@ -57,9 +58,19 @@ async def ctx(req):
     return b, u, u["id"] == ADMIN_ID
 
 
+last_msg = {}  # охирин огоҳии ҳар чат: паёми нав ҷои пешинаро мегирад
+
+
 async def tell(uid, text):
+    old = last_msg.pop(uid, None)
+    if old:
+        try:
+            await bot.delete_message(uid, old)
+        except Exception:
+            pass
     try:
-        await bot.send_message(uid, text)
+        m = await bot.send_message(uid, text)
+        last_msg[uid] = m.message_id
     except Exception:
         pass
 
@@ -338,6 +349,11 @@ async def main():
     runner = web.AppRunner(app)
     await runner.setup()
     await web.TCPSite(runner, "0.0.0.0", PORT).start()
+    try:  # тугмаи доимӣ дар паҳлӯи майдони паём: бе /start
+        await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(
+            text="Фармоиш", web_app=WebAppInfo(url=WEBAPP_URL)))
+    except Exception:
+        pass
     await dp.start_polling(bot)
 
 
