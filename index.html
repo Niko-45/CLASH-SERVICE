@@ -89,7 +89,7 @@ function form(k){
   (s.acc?`<label class="chk"><input type="checkbox" id="ok">Мефаҳмам, ки барои ин хидмат аккаунт лозим аст ва Supercell онро манъ мекунад. Хавфи бан бар души ман.</label>`:"")+
   `<p class="err" id="err"></p><button class="btn" id="go" onclick="send('${k}')">Фиристодан</button>`;
 }
-const shrink=f=>new Promise((res,rej)=>{const i=new Image();i.onload=()=>{const k=Math.min(1,1600/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=i.width*k;c.height=i.height*k;c.getContext("2d").drawImage(i,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",.85))};i.onerror=rej;i.src=URL.createObjectURL(f)});
+const shrink=f=>new Promise((res,rej)=>{const i=new Image();i.onload=()=>{const k=Math.min(1,1280/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=i.width*k;c.height=i.height*k;c.getContext("2d").drawImage(i,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",.75))};i.onerror=rej;i.src=URL.createObjectURL(f)});
 async function send(k){
  const s=SV[k],data={};
  for(const [id,l,t,opt] of s.f){const v=g("f_"+id).value.trim();if(!v&&!opt){g("err").textContent="Пур кунед: "+l;return}if(v)data[id]=v}
@@ -111,7 +111,8 @@ function detail(id){
  A.innerHTML=`<span class="back" onclick="home()">← Бозгашт</span><h2>${s.e} ${esc(s.t)}</h2><div class="row"><span class="mut">Статус</span>${tag(o.status)}</div>`+
   (me.admin?`<div class="row"><span class="mut">Клиент</span><span>@${esc(o.users?.username||o.users?.name||o.user_id)}</span></div>`:"")+
   rows+(o.note?`<div class="card" style="cursor:default;margin-top:10px">${esc(o.note)}</div>`:"")+
-  (o.price&&!act?`<div class="row"><span class="mut">Нарх</span><span class="gold">${+o.price} сомонӣ</span></div>`:"")+bar(o)+act+`<button class="btn g" onclick="chat(${+o.id})">💬 Чат</button>`;
+  (o.price&&!act?`<div class="row"><span class="mut">Нарх</span><span class="gold">${+o.price} сомонӣ</span></div>`:"")+(o.has_image?'<div id="shot" class="mut" style="margin:10px 0">Скриншот бор мешавад…</div>':"")+bar(o)+act+`<button class="btn g" onclick="chat(${+o.id})">💬 Чат</button>`;
+ if(o.has_image)loadShot(o.id);
 }
 const run=async(p,b)=>{try{await api(p,b);home()}catch(e){tg.showAlert("Хато шуд. Дубора кӯшиш кунед.")}};
 function setPrice(id){const v=+g("pr").value;if(v>0)run("/api/orders/price",{id,price:v})}
@@ -174,5 +175,15 @@ async function svc(){
   it.map(x=>{const s=sv(x.key);return `<div ${cd}><div class="row"><b>${s.e} ${esc(s.t)}</b><input type="checkbox" style="width:22px;height:22px" id="a_${x.key}" ${x.active?"checked":""} onchange="svcSet('${x.key}')"></div><input id="p_${x.key}" type="number" placeholder="Нарх" value="${+x.price||""}" onchange="svcSet('${x.key}')"></div>`}).join("");
 }
 async function svcSet(k){try{await api("/api/services/update",{key:k,price:g("p_"+k).value,active:g("a_"+k).checked})}catch(e){tg.showAlert("Хато шуд.")}}
+async function loadShot(id){
+ const b=g("shot");
+ try{const r=await api("/api/orders/image",{id});if(!b)return;
+  if(!r.image){b.remove();return}
+  const im=new Image();im.src=r.image;im.style.cssText="width:100%;border-radius:12px;margin:10px 0;display:block";
+  im.onclick=()=>zoom(r.image);b.replaceWith(im)}
+ catch(e){if(b)b.textContent="Скриншот кушода нашуд."}
+}
+function zoom(src){const d=document.createElement("div");d.style.cssText="position:fixed;inset:0;background:#000;z-index:9;display:flex;align-items:center;justify-content:center";
+ const im=new Image();im.src=src;im.style.cssText="max-width:100%;max-height:100%";d.appendChild(im);d.onclick=()=>d.remove();document.body.appendChild(d)}
 home();
 </script></body></html>
