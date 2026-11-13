@@ -1,6 +1,6 @@
 """Бот + API. Тағйирёбандаҳо: BOT_TOKEN, ADMIN_CHAT_ID, WEBAPP_URL,
 SUPABASE_URL, SUPABASE_SERVICE_KEY (калиди service_role, ҳеҷ вақт ба фронтенд надиҳед)."""
-import os, json, hmac, hashlib, time, base64, asyncio
+import os, re, json, hmac, hashlib, time, base64, asyncio
 from urllib.parse import parse_qsl
 import aiohttp
 from datetime import datetime, timedelta, timezone
@@ -127,20 +127,25 @@ async def create(req):
     data = {str(k)[:20]: str(v)[:100] for k, v in list((b.get("data") or {}).items())[:10]}
     note = str(b.get("note", ""))[:800]
     await upsert_user(u)
-    o = (await sb("POST", "orders", None, {"user_id": u["id"], "service": sv,
-                                           "data": data, "note": note}))[0]
-    cap = (f"Дархости нав #{o['id']}\n{SERVICES[sv]}\n@{u.get('username', '-')} "
-           f"({u.get('first_name', '')})\n" + "\n".join(f"{k}: {v}" for k, v in data.items())
-           + (f"\n\n{note}" if note else ""))
-    try:
-        if b.get("image"):
-            img = base64.b64decode(b["image"].split(",", 1)[1])
-            await bot.send_photo(ADMIN_ID, BufferedInputFile(img, "s.jpg"), caption=cap[:1000])
-        else:
-            await bot.send_message(ADMIN_ID, cap)
-    except Exception:
-        pass
+    img = b.get("image")
+    if img and (not isinstance(img, str) or len(img) > 3_000_000
+                or not re.fullmatch(r"data:image/jpeg;base64,[A-Za-z0-9+/=]+", img)):
+        raise web.HTTPBadRequest()
+    o = (await sb("POST", "orders", None, {"user_id": u["id"], "service": sv, "data": data,
+                                           "note": note, "has_image": bool(img)}))[0]
+    if img:
+        await sb("POST", "order_images", None, {"order_id": o["id"], "data": img})
+    await tell(ADMIN_ID, f"📥 Дархости нав #{o['id']} · {SERVICES[sv]} · @{u.get('username', '-')}\n"
+                         f"Барномаро кушоед.")
     return web.json_response({"ok": True})
+
+
+@routes.post("/api/orders/image")
+async def order_image(req):
+    b, u, adm = await ctx(req)
+    o = await own_order(b, u["id"], adm)
+    rows = await sb("GET", "order_images", {"order_id": f"eq.{o['id']}"})
+    return web.json_response({"image": rows[0]["data"] if rows else None})
 
 
 @routes.post("/api/orders/price")
