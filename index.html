@@ -30,6 +30,11 @@ input[type=file]{padding:10px}
 .chk input{width:20px;height:20px;flex:none;margin:0}
 .back{display:inline-block;color:var(--mut);cursor:pointer;margin:0 0 6px}
 .err{color:#FF8A8A;font-size:13px;min-height:1.2em}
+.msgs{display:flex;flex-direction:column;gap:8px;min-height:50vh;margin-bottom:12px}
+.m{max-width:80%;padding:9px 12px;border-radius:14px;background:var(--card);align-self:flex-start;white-space:pre-wrap;word-break:break-word}
+.m.me{align-self:flex-end;background:var(--gold);color:#14172B}
+.send{display:flex;gap:8px;position:sticky;bottom:8px}
+.sb{width:48px;border:0;border-radius:10px;background:var(--gold);font-size:18px;cursor:pointer}
 </style></head>
 <body><div id="app"></div>
 <script>
@@ -52,9 +57,10 @@ const ST={new:["Нав","#FF8A8A"],priced:["Нарх интизор аст","#F5
 const tag=s=>`<span class="tag" style="color:${(ST[s]||ST.new)[1]}">${(ST[s]||ST.new)[0]}</span>`;
 const sv=k=>SV[k]||{e:"",t:k,f:[]};
 const bar=o=>+o.progress_total>0?`<div class="bar"><i style="width:${Math.min(100,Math.round(o.progress_done/o.progress_total*100))}%"></i></div><div class="mut">${+o.progress_done} / ${+o.progress_total}</div>`:"";
-let me=null,orders=[];
+let me=null,orders=[],poll=null;
 
 async function home(){
+ clearInterval(poll);
  A.innerHTML='<p class="mut">Бор шуда истодааст…</p>';
  try{me=me||await api("/api/me");orders=(await api("/api/orders")).orders}
  catch(e){A.innerHTML='<p>Хато шуд. Барномаро дубора кушоед.</p>';return}
@@ -100,11 +106,29 @@ function detail(id){
  A.innerHTML=`<span class="back" onclick="home()">← Бозгашт</span><h2>${s.e} ${esc(s.t)}</h2><div class="row"><span class="mut">Статус</span>${tag(o.status)}</div>`+
   (me.admin?`<div class="row"><span class="mut">Клиент</span><span>@${esc(o.users?.username||o.users?.name||o.user_id)}</span></div>`:"")+
   rows+(o.note?`<div class="card" style="cursor:default;margin-top:10px">${esc(o.note)}</div>`:"")+
-  (o.price&&!act?`<div class="row"><span class="mut">Нарх</span><span class="gold">${+o.price} сомонӣ</span></div>`:"")+bar(o)+act;
+  (o.price&&!act?`<div class="row"><span class="mut">Нарх</span><span class="gold">${+o.price} сомонӣ</span></div>`:"")+bar(o)+act+`<button class="btn g" onclick="chat(${+o.id})">💬 Чат</button>`;
 }
 const run=async(p,b)=>{try{await api(p,b);home()}catch(e){tg.showAlert("Хато шуд. Дубора кӯшиш кунед.")}};
 function setPrice(id){const v=+g("pr").value;if(v>0)run("/api/orders/price",{id,price:v})}
 function prog(id,fin){run("/api/orders/progress",{id,done:+g("pd").value,total:+g("pt").value,finish:fin})}
 function conf(id,accept){run("/api/orders/confirm",{id,accept})}
+async function chat(id){
+ clearInterval(poll);
+ A.innerHTML=`<span class="back" onclick="clearInterval(poll);detail(${id})">← Бозгашт</span><h2>💬 Чат · #${id}</h2><div id="msgs" class="msgs"></div><div class="send"><input id="mt" placeholder="Паём нависед" onkeydown="if(event.key=='Enter')say(${id})"><button class="sb" onclick="say(${id})">➤</button></div>`;
+ await loadChat(id,true);
+ poll=setInterval(()=>loadChat(id,false),5000);
+}
+let lastN=-1;
+async function loadChat(id,first){
+ try{const m=(await api("/api/chat/list",{id})).messages,box=g("msgs");
+  if(!box||(!first&&m.length==lastN))return;
+  lastN=m.length;
+  box.innerHTML=m.length?m.map(x=>`<div class="m${x.mine?" me":""}">${esc(x.text)}</div>`).join(""):'<p class="mut">Ҳоло паём нест.</p>';
+  window.scrollTo(0,document.body.scrollHeight)}catch(e){}
+}
+async function say(id){
+ const i=g("mt"),t=i.value.trim();if(!t)return;i.value="";
+ try{await api("/api/chat/send",{id,text:t});await loadChat(id,true)}catch(e){tg.showAlert("Хато шуд.")}
+}
 home();
 </script></body></html>
