@@ -59,6 +59,84 @@ async def ctx(req):
     return b, u, u["id"] == ADMIN_ID
 
 
+M = {
+    "tg": {
+        "new": "📥 Дархости нав #{id} · {name} · @{user}\nБарномаро кушоед.",
+        "price": "Нархи фармоиши #{id}: {price} сомонӣ{hours}. Барномаро кушоед ва тасдиқ кунед.",
+        "hours": ", муддат: тақрибан {h} соат",
+        "accepted": "Фармоиши #{id}: клиент нархро қабул кард. Интизори пардохт.",
+        "declined": "Фармоиши #{id}: клиент нархро рад кард.",
+        "receipt": "💳 Фармоиши #{id}: квитансия омад. Санҷед.",
+        "paid_ok": "✅ Пардохт қабул шуд. Кор оғоз шуд! (фармоиши #{id})",
+        "paid_bad": "❌ Квитансияи фармоиши #{id} қабул нашуд. Дубора фиристед ё дар чат нависед.",
+        "done": "Фармоиши #{id} тайёр шуд!",
+        "cancel_admin": "Фармоиши #{id} бекор шуд.\nСабаб: {reason}",
+        "cancel_client": "Фармоиши #{id}: клиент бекор кард.",
+        "cancel_paid": "Фармоиши #{id}: клиент баъди фиристодани квитансия бекор кард. Агар пул гирифта бошед, баргардонед.",
+        "chat": "Паём (фармоиши #{id}):\n{text}\n\nБарномаро кушоед, то ҷавоб диҳед.",
+        "review": "Шарҳи нав барои фармоиши #{id}: {rating}/5\n{text}",
+    },
+    "ru": {
+        "new": "📥 Новый заказ #{id} · {name} · @{user}\nОткройте приложение.",
+        "price": "Цена заказа #{id}: {price} сомони{hours}. Откройте приложение и подтвердите.",
+        "hours": ", срок: около {h} ч",
+        "accepted": "Заказ #{id}: клиент принял цену. Ждём оплату.",
+        "declined": "Заказ #{id}: клиент отклонил цену.",
+        "receipt": "💳 Заказ #{id}: пришла квитанция. Проверьте.",
+        "paid_ok": "✅ Оплата принята. Работа началась! (заказ #{id})",
+        "paid_bad": "❌ Квитанция заказа #{id} не подошла. Отправьте снова или напишите в чат.",
+        "done": "Заказ #{id} готов!",
+        "cancel_admin": "Заказ #{id} отменён.\nПричина: {reason}",
+        "cancel_client": "Заказ #{id}: клиент отменил.",
+        "cancel_paid": "Заказ #{id}: клиент отменил после отправки квитанции. Если оплата получена, верните её.",
+        "chat": "Сообщение (заказ #{id}):\n{text}\n\nОткройте приложение, чтобы ответить.",
+        "review": "Новый отзыв к заказу #{id}: {rating}/5\n{text}",
+    },
+}
+LANG = {}
+
+
+async def lang_of(uid):
+    if uid not in LANG:
+        r = await sb("GET", "users", {"id": f"eq.{uid}", "select": "lang"})
+        LANG[uid] = (r[0].get("lang") if r else None) or "tg"
+    return LANG[uid]
+
+
+def nm(name, lg):
+    p = str(name).split(" / ")
+    return (p[1] if lg == "ru" and len(p) > 1 else p[0]).strip()
+
+
+async def tellk(uid, key, **kw):
+    lg = await lang_of(uid)
+    await tell(uid, M.get(lg, M["tg"])[key].format(**kw))
+
+
+def estimate(sv, data):
+    unit = sv.get("unit_price")
+    if not unit:
+        return None
+    fr = to = cnt = None
+    for f in sv.get("fields") or []:
+        try:
+            n = int(float(data.get(f.get("label"), "")))
+        except (TypeError, ValueError):
+            n = None
+        r = f.get("role")
+        if r == "from":
+            fr = n
+        elif r == "to":
+            to = n
+        elif r == "count":
+            cnt = n
+    if fr is not None and to is not None:
+        return min(1_000_000, max(0, to - fr) * unit)
+    if cnt is not None:
+        return min(1_000_000, max(0, cnt) * unit)
+    return None
+
+
 last_msg = {}  # огоҳии нав ҷои огоҳии пешинаро мегирад
 
 
@@ -105,6 +183,11 @@ OK = lambda: web.json_response({"ok": True})
 async def me(req):
     b, u, adm = await ctx(req)
     row = await upsert_user(u)
+    lg = b.get("lang")
+    if lg in ("tg", "ru"):
+        LANG[u["id"]] = lg
+        if row.get("lang") != lg:
+            await sb("PATCH", "users", {"id": f"eq.{u['id']}"}, {"lang": lg})
     return web.json_response({"name": row.get("name") or u.get("first_name", ""), "admin": adm})
 
 
@@ -137,11 +220,12 @@ async def create(req):
         raise web.HTTPBadRequest()
     await upsert_user(u)
     o = (await sb("POST", "orders", None, {"user_id": u["id"], "service": sv["key"], "data": data,
-                                           "note": note, "has_image": bool(img)}))[0]
+                                           "note": note, "has_image": bool(img),
+                                           "est_price": estimate(sv, data)}))[0]
     if img:
         await sb("POST", "order_images", None, {"order_id": o["id"], "data": img})
-    await tell(ADMIN_ID, f"📥 Дархости нав #{o['id']} · {sv['name']} · @{u.get('username', '-')}\n"
-                         f"Барномаро кушоед.")
+    await tellk(ADMIN_ID, "new", id=o["id"], name=nm(sv["name"], await lang_of(ADMIN_ID)),
+                user=u.get("username", "-"))
     return OK()
 
 
@@ -165,9 +249,9 @@ async def price(req):
     hours = min(1000.0, max(0.0, float(b.get("hours") or 0)))
     await sb("PATCH", "orders", {"id": f"eq.{o['id']}"},
              {"price": pr, "status": "priced", "hours": hours or None})
-    await tell(o["user_id"], f"Нархи фармоиши #{o['id']}: {pr} сомонӣ"
-                             + (f", муддат: тақрибан {hours:g} соат" if hours else "")
-                             + ". Барномаро кушоед ва тасдиқ кунед.")
+    lg = await lang_of(o["user_id"])
+    await tellk(o["user_id"], "price", id=o["id"], price=pr,
+                hours=M[lg]["hours"].format(h=f"{hours:g}") if hours else "")
     return OK()
 
 
@@ -177,12 +261,95 @@ async def confirm(req):
     o = await own_order(b, u["id"], False)
     if o["status"] != "priced":
         raise web.HTTPBadRequest()
-    if b.get("accept"):
+    st = "unpaid" if b.get("accept") else "rejected"
+    await sb("PATCH", "orders", {"id": f"eq.{o['id']}"}, {"status": st})
+    await tellk(ADMIN_ID, "accepted" if b.get("accept") else "declined", id=o["id"])
+    return OK()
+
+
+@routes.post("/api/orders/pay")
+async def pay(req):
+    b, u, adm = await ctx(req)
+    o = await own_order(b, u["id"], False)
+    img = b.get("image")
+    if o["status"] != "unpaid" or not ok_img(img, 3_000_000):
+        raise web.HTTPBadRequest()
+    await sb("POST", "order_files", None, {"order_id": o["id"], "kind": "receipt", "data": img})
+    await sb("PATCH", "orders", {"id": f"eq.{o['id']}"}, {"status": "checking"})
+    await tellk(ADMIN_ID, "receipt", id=o["id"])
+    return OK()
+
+
+@routes.post("/api/orders/paycheck")
+async def paycheck(req):
+    b, u, adm = await ctx(req)
+    if not adm:
+        raise web.HTTPForbidden()
+    o = await own_order(b, u["id"], True)
+    if o["status"] != "checking":
+        raise web.HTTPBadRequest()
+    if b.get("ok"):
         await sb("PATCH", "orders", {"id": f"eq.{o['id']}"},
                  {"status": "working", "started_at": datetime.now(timezone.utc).isoformat()})
+        await tellk(o["user_id"], "paid_ok", id=o["id"])
     else:
-        await sb("PATCH", "orders", {"id": f"eq.{o['id']}"}, {"status": "rejected"})
-    await tell(ADMIN_ID, f"Фармоиши #{o['id']}: клиент {'тасдиқ кард' if b.get('accept') else 'рад кард'}.")
+        await sb("PATCH", "orders", {"id": f"eq.{o['id']}"}, {"status": "unpaid"})
+        await tellk(o["user_id"], "paid_bad", id=o["id"])
+    return OK()
+
+
+@routes.post("/api/orders/files")
+async def order_files(req):
+    b, u, adm = await ctx(req)
+    o = await own_order(b, u["id"], adm)
+    kind = "result" if b.get("kind") == "result" else "receipt"
+    rows = await sb("GET", "order_files", {"order_id": f"eq.{o['id']}", "kind": f"eq.{kind}",
+                                           "order": "id.desc", "limit": "5"})
+    return web.json_response({"files": [r["data"] for r in rows]})
+
+
+@routes.post("/api/orders/result")
+async def result(req):
+    b, u, adm = await ctx(req)
+    if not adm:
+        raise web.HTTPForbidden()
+    o = await own_order(b, u["id"], True)
+    if not ok_img(b.get("image"), 3_000_000):
+        raise web.HTTPBadRequest()
+    await sb("POST", "order_files", None, {"order_id": o["id"], "kind": "result", "data": b["image"]})
+    return OK()
+
+
+@routes.post("/api/orders/cancel")
+async def cancel(req):
+    b, u, adm = await ctx(req)
+    o = await own_order(b, u["id"], adm)
+    st = o["status"]
+    if st in ("done", "cancelled", "rejected") or (not adm and st not in ("new", "priced", "unpaid", "checking")):
+        raise web.HTTPBadRequest()
+    reason = str(b.get("reason", "")).strip()[:200]
+    await sb("PATCH", "orders", {"id": f"eq.{o['id']}"}, {"status": "cancelled", "cancel_reason": reason or None})
+    if adm:
+        await tellk(o["user_id"], "cancel_admin", id=o["id"], reason=reason or "—")
+    else:
+        await tellk(ADMIN_ID, "cancel_paid" if st == "checking" else "cancel_client", id=o["id"])
+    return OK()
+
+
+@routes.post("/api/settings")
+async def settings(req):
+    await ctx(req)
+    r = await sb("GET", "settings", {"key": "eq.pay_info"})
+    return web.json_response({"pay_info": r[0]["value"] if r else ""})
+
+
+@routes.post("/api/settings/save")
+async def settings_save(req):
+    b, u, adm = await ctx(req)
+    if not adm:
+        raise web.HTTPForbidden()
+    await sb("POST", "settings", {"on_conflict": "key"},
+             {"key": "pay_info", "value": str(b.get("pay_info", "")).strip()[:600]})
     return OK()
 
 
@@ -194,7 +361,7 @@ async def finish(req):
     o = await own_order(b, u["id"], True)
     await sb("PATCH", "orders", {"id": f"eq.{o['id']}"},
              {"status": "done", "done_at": datetime.now(timezone.utc).isoformat()})
-    await tell(o["user_id"], f"Фармоиши #{o['id']} тайёр шуд!")
+    await tellk(o["user_id"], "done", id=o["id"])
     return OK()
 
 
@@ -215,8 +382,7 @@ async def chat_send(req):
     if not text:
         raise web.HTTPBadRequest()
     await sb("POST", "messages", None, {"order_id": o["id"], "sender_id": u["id"], "text": text})
-    await tell(o["user_id"] if adm else ADMIN_ID,
-               f"Паём (фармоиши #{o['id']}):\n{text[:200]}\n\nБарномаро кушоед, то ҷавоб диҳед.")
+    await tellk(o["user_id"] if adm else ADMIN_ID, "chat", id=o["id"], text=text[:200])
     return OK()
 
 
@@ -285,14 +451,20 @@ async def services_save(req):
         raise web.HTTPBadRequest()
     pr = b.get("price")
     pr = max(0, int(pr)) if pr not in (None, "") else None
+    unit = b.get("unit_price")
+    unit = max(0, int(unit)) if unit not in (None, "") else None
     fields = []
     for f in (b.get("fields") or [])[:8]:
         label = str(f.get("label", "")).strip()[:50] if isinstance(f, dict) else ""
         if label:
-            fields.append({"label": label, "type": "number" if f.get("type") == "number" else "text",
-                           "opt": bool(f.get("opt"))})
+            role = f.get("role") if f.get("role") in ("from", "to", "count") else None
+            item = {"label": label, "type": "number" if (role or f.get("type") == "number") else "text",
+                    "opt": bool(f.get("opt"))}
+            if role:
+                item["role"] = role
+            fields.append(item)
     row = {"key": key or "s" + str(int(time.time())), "name": name,
-           "icon": str(b.get("icon") or "").strip()[:8] or "🛠️", "price": pr, "fields": fields,
+           "icon": str(b.get("icon") or "").strip()[:8] or "🛠️", "price": pr, "fields": fields, "unit_price": unit,
            "acc": bool(b.get("acc")), "active": bool(b.get("active"))}
     if not exists:
         row["sort"] = 100
@@ -316,7 +488,7 @@ async def review_create(req):
     rating = min(5, max(1, int(b.get("rating", 5))))
     text = str(b.get("text", "")).strip()[:500]
     await sb("POST", "reviews", None, {"order_id": o["id"], "user_id": u["id"], "rating": rating, "text": text})
-    await tell(ADMIN_ID, f"Шарҳи нав барои фармоиши #{o['id']}: {rating}/5\n{text}")
+    await tellk(ADMIN_ID, "review", id=o["id"], rating=rating, text=text)
     return OK()
 
 
@@ -399,8 +571,8 @@ async def cors(req, handler):
 @dp.message(CommandStart())
 async def start(m: Message):
     kb = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="Кушодани барнома", web_app=WebAppInfo(url=WEBAPP_URL))]])
-    await m.answer("Салом! Барои фармоиш тугмаро пахш кунед.", reply_markup=kb)
+        InlineKeyboardButton(text="Кушодани барнома / Открыть", web_app=WebAppInfo(url=WEBAPP_URL))]])
+    await m.answer("Салом! Барои фармоиш тугмаро пахш кунед.\nПривет! Нажмите кнопку, чтобы сделать заказ.", reply_markup=kb)
 
 
 async def main():
@@ -412,7 +584,7 @@ async def main():
     await web.TCPSite(runner, "0.0.0.0", PORT).start()
     try:
         await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(
-            text="Фармоиш", web_app=WebAppInfo(url=WEBAPP_URL)))
+            text="Фармоиш / Заказ", web_app=WebAppInfo(url=WEBAPP_URL)))
     except Exception:
         pass
     await dp.start_polling(bot)
