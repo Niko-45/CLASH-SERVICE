@@ -12,7 +12,8 @@ body{margin:0;padding:0 14px calc(40px + env(safe-area-inset-bottom));background
 @keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 h2{font-size:21px;margin:6px 0 14px}
 .mut{color:var(--mut);font-size:13px}.gold{color:var(--gold);font-weight:600}
-.nav{position:sticky;top:0;z-index:5;display:flex;gap:6px;padding:12px 0 10px;background:var(--bg)}
+.lang{display:flex;justify-content:flex-end;gap:6px;padding-top:10px}
+.nav{position:sticky;top:0;z-index:5;display:flex;gap:6px;padding:10px 0;background:var(--bg)}
 .nav span{position:relative;flex:1;text-align:center;padding:9px 2px;border-radius:12px;background:var(--card);color:var(--mut);font-size:13px;cursor:pointer}
 .nav span.on{background:var(--gold);color:#14172B;font-weight:600}
 .nav i{position:absolute;top:-5px;right:-2px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--bad);color:#2a0d0d;font:600 11px/18px system-ui;font-style:normal}
@@ -51,6 +52,7 @@ input.sw:checked::after{left:21px}
 .m.me{align-self:flex-end;border-radius:16px 16px 4px 16px;background:var(--gold);color:#14172B}
 .send{display:flex;gap:8px;position:sticky;bottom:8px}
 .sb{width:48px;border:0;border-radius:12px;background:var(--gold);font-size:18px;cursor:pointer}
+.pic{width:100%;border-radius:14px;margin:6px 0;display:block}
 </style></head>
 <body><div id="app"></div>
 <script>
@@ -62,153 +64,255 @@ const hap=()=>{try{tg.HapticFeedback.impactOccurred("light")}catch(e){}};
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const api=async(p,b={})=>{const r=await fetch(API+p,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...b,initData:tg.initData})});if(!r.ok)throw new Error(r.status);return r.json()};
 
-const LEG={th:"Town Hall",cur:"Сатҳи ҳозира",to:"Сатҳи дилхоҳ",tag:"Теги клан",what:"Чӣ / кадом",times:"Чанд маротиба",n:"Шумораи ҳамла",hall:"Capital Hall",title:"Чӣ мехоҳед",budget:"Буҷет"};
-const ST={new:["Нав","#FF8A8A"],priced:["Нарх интизор","#F5B83D"],working:["Дар кор","#9DBBFF"],done:["Тайёр","#4CC38A"],rejected:["Рад шуд","#9AA0C0"]};
-const tag=s=>{const t=ST[s]||ST.new;return `<span class="tag" style="color:${t[1]}">${t[0]}</span>`};
+/* ---------- забон ---------- */
+let lang="tg";
+try{lang=localStorage.getItem("lang")||((tg.initDataUnsafe.user||{}).language_code=="ru"?"ru":"tg")}catch(e){}
+const T={
+tg:{load:"Бор шуда истодааст…",err:"Хато шуд.",errOpen:"Хато шуд. Барномаро дубора кушоед.",errRetry:"Хато шуд. Дубора кӯшиш кунед.",
+ back:"← Бозгашт",save:"Нигоҳ доштан",send:"Фиристодан",som:"сомонӣ",hrs:"соат",
+ n_o:"Фармоиш",n_a:"Эълон",n_f:"Финанс",n_s:"Хидмат",n_p:"Профил",
+ admin:"Панели шумо",hello:"Салом,",f_all:"Ҳама",f_new:"Нав",f_run:"Дар ҷараён",f_done:"Тайёр",
+ noact:"Фармоиши фаъол нест. 🛡️",empty:"Ин ҷо холӣ аст.",others:"Дигар",hide:"Пинҳон кардан",newreq:"+ Дархости нав",
+ pick:"Хидматро интихоб кунед",from:"аз",nego:"Нархро ман мегӯям",noprice:"Нарх мувофиқа",
+ note:"Шарҳ",shot:"Скриншот",fill:"Пур кунед: ",opt:"(ихтиёрӣ)",consent:"Мефаҳмам, ки барои ин хидмат аккаунт лозим аст ва Supercell онро манъ мекунад. Хавфи бан бар души ман.",consentNeed:"Розигиро тасдиқ кунед",sending:"Фиристода истодааст…",est:"Нархи тахминӣ",
+ st_new:"Нав",st_priced:"Нарх интизор",st_unpaid:"Пардохт интизор",st_checking:"Санҷиши пардохт",st_working:"Дар кор",st_done:"Тайёр",st_rejected:"Рад шуд",st_cancelled:"Бекор шуд",
+ status:"Статус",client:"Клиент",price:"Нарх",term:"Муддат",about:"тақрибан",
+ priceLbl:"Нарх, сомонӣ",hoursLbl:"Чанд соат кор мекашад (прогресс худаш пур мешавад)",priceBtn:"Нарх фиристодан",estHint:"Нархи тахминӣ:",
+ accept:"Тасдиқ",decline:"Рад кардан",finish:"Тайёр шуд",resultLbl:"Скриншоти натиҷа (ихтиёрӣ)",chat:"💬 Чат",
+ shotLoad:"Скриншот бор мешавад…",shotFail:"Скриншот кушода нашуд.",
+ rate:"Баҳо диҳед",rateNeed:"Баҳо интихоб кунед.",reviewPh:"Шарҳ (ихтиёрӣ)",
+ payTitle:"Пардохт",payEmpty:"Реквизитҳо ҳоло нест, дар чат пурсед.",receiptLbl:"Квитансияро бор кунед",receiptNeed:"Квитансияро интихоб кунед.",sendReceipt:"Квитансияро фиристодан",checkingMsg:"Квитансия санҷида истодааст. Интизор шавед.",payOk:"Пардохт гирифта шуд",payBad:"Квитансия нодуруст",receiptTitle:"Квитансия",resultTitle:"Натиҷа",addResult:"Илова кардани расми натиҷа",
+ cancel:"Бекор кардан",cancelAsk:"Фармоиш бекор шавад?",reasonPh:"Сабаби бекор кардан (ихтиёрӣ)",reasonLbl:"Сабаб:",
+ chatT:"Чат",msgPh:"Паём нависед",noMsgs:"Ҳоло паём нест.",q1:"Кор оғоз шуд",q2:"Имрӯз тайёр мешавад",q3:"Скриншоти нави базаро фиристед",
+ a_new:"Эълони нав",a_title:"Сарлавҳа",a_text:"Матн",a_pin:"Пин кардан (дар боло мемонад)",a_send:"Ба ҳама фиристодан",a_imp:"📌 Муҳим",a_del:"🗑 Нест кардан",a_ask:"Нест карда шавад?",a_none:"Ҳоло эълон нест. 📢",
+ f_week:"Даромади 7 рӯз",f_month:"Дар 30 рӯз",f_total:"Ҳамагӣ",f_work:"Дар кор (нарх)",f_cnt:"Фармоиши тайёр",
+ p_my:"Профили ман",p_master:"Мутахассис",p_edit:"✏️ Таҳрири профил",p_editT:"Таҳрири профил",p_photo:"Расм",p_name:"Ном",p_about:"Дар бораи худ",p_rating:"Рейтинг",p_done:"Фармоиши тайёр",p_rev:"Шарҳҳо",p_norev:"Ҳоло шарҳ нест.",nameNeed:"Ном нависед",
+ s_hint:"✏️ барои таҳрири ном, расм ва форма. Ҷевон барои фаъол ё хомӯш кардан.",s_new:"+ Хидмати нав",s_editT:"Таҳрири хидмат",s_newT:"Хидмати нав",s_photo:"Расми хидмат",s_emoji:"Эмоҷӣ (агар расм набошад)",
+ s_name:"Ном (барои ду забон: Тоҷикӣ / Русӣ)",s_price:"Нарх \"аз ... сомонӣ\" (холӣ = мувофиқа)",s_unit:"Нарх барои 1 воҳид (ҳисобкунак; холӣ = ҳисобкунак нест)",
+ s_fields:"Майдонҳои форма: ҳар сатр як майдон. Нишонаҳо дар охир: (ихтиёрӣ); (аз) = сатҳи ҳозира; (то) = сатҳи дилхоҳ; (шумора) = шумора. Барои ду забон: Тоҷикӣ / Русӣ",
+ s_acc:"Барои ин хидмат аккаунти клиент лозим аст (огоҳии бан нишон дода мешавад)",s_act:"Фаъол (клиентон мебинанд)",s_delimg:"Расмро нест кардан",s_payT:"Реквизитҳои пардохт (клиент баъди тасдиқи нарх мебинад)",s_payPh:"Масалан: Alif 1234 5678 …, ном",s_saved:"Нигоҳ дошта шуд ✓",
+ now:"ҳозир",m:" дақ пеш",h:" соат пеш",d:" рӯз пеш",left:"боқӣ: ",timeUp:"вақт тамом шуд",mn:"дақ"},
+ru:{load:"Загрузка…",err:"Ошибка.",errOpen:"Ошибка. Откройте приложение заново.",errRetry:"Ошибка. Попробуйте ещё раз.",
+ back:"← Назад",save:"Сохранить",send:"Отправить",som:"сомони",hrs:"ч",
+ n_o:"Заказы",n_a:"Новости",n_f:"Финансы",n_s:"Услуги",n_p:"Профиль",
+ admin:"Ваша панель",hello:"Привет,",f_all:"Все",f_new:"Новые",f_run:"В процессе",f_done:"Готово",
+ noact:"Активных заказов нет. 🛡️",empty:"Здесь пусто.",others:"Остальные",hide:"Скрыть",newreq:"+ Новый заказ",
+ pick:"Выберите услугу",from:"от",nego:"Цену назову я",noprice:"Цена договорная",
+ note:"Комментарий",shot:"Скриншот",fill:"Заполните: ",opt:"(необяз.)",consent:"Я понимаю, что для этой услуги нужен аккаунт, а Supercell это запрещает. Риск бана на мне.",consentNeed:"Подтвердите согласие",sending:"Отправка…",est:"Примерная цена",
+ st_new:"Новый",st_priced:"Ждёт цену",st_unpaid:"Ждёт оплату",st_checking:"Проверка оплаты",st_working:"В работе",st_done:"Готов",st_rejected:"Отклонён",st_cancelled:"Отменён",
+ status:"Статус",client:"Клиент",price:"Цена",term:"Срок",about:"около",
+ priceLbl:"Цена, сомони",hoursLbl:"Сколько часов займёт (прогресс заполнится сам)",priceBtn:"Отправить цену",estHint:"Примерно:",
+ accept:"Принять",decline:"Отклонить",finish:"Готово",resultLbl:"Скриншот результата (необяз.)",chat:"💬 Чат",
+ shotLoad:"Загрузка скриншота…",shotFail:"Не удалось открыть скриншот.",
+ rate:"Оцените",rateNeed:"Выберите оценку.",reviewPh:"Отзыв (необяз.)",
+ payTitle:"Оплата",payEmpty:"Реквизитов пока нет, спросите в чате.",receiptLbl:"Загрузите квитанцию",receiptNeed:"Выберите квитанцию.",sendReceipt:"Отправить квитанцию",checkingMsg:"Квитанция проверяется. Подождите.",payOk:"Оплата получена",payBad:"Квитанция не подходит",receiptTitle:"Квитанция",resultTitle:"Результат",addResult:"Добавить фото результата",
+ cancel:"Отменить",cancelAsk:"Отменить заказ?",reasonPh:"Причина отмены (необяз.)",reasonLbl:"Причина:",
+ chatT:"Чат",msgPh:"Напишите сообщение",noMsgs:"Сообщений пока нет.",q1:"Работа началась",q2:"Сегодня будет готово",q3:"Пришлите новый скриншот базы",
+ a_new:"Новое объявление",a_title:"Заголовок",a_text:"Текст",a_pin:"Закрепить (останется вверху)",a_send:"Отправить всем",a_imp:"📌 Важно",a_del:"🗑 Удалить",a_ask:"Удалить?",a_none:"Объявлений пока нет. 📢",
+ f_week:"Доход за 7 дней",f_month:"За 30 дней",f_total:"Всего",f_work:"В работе (сумма)",f_cnt:"Выполнено заказов",
+ p_my:"Мой профиль",p_master:"Мастер",p_edit:"✏️ Изменить профиль",p_editT:"Изменить профиль",p_photo:"Фото",p_name:"Имя",p_about:"О себе",p_rating:"Рейтинг",p_done:"Выполнено",p_rev:"Отзывы",p_norev:"Отзывов пока нет.",nameNeed:"Введите имя",
+ s_hint:"✏️ изменить название, фото и форму. Переключатель включает или выключает услугу.",s_new:"+ Новая услуга",s_editT:"Изменить услугу",s_newT:"Новая услуга",s_photo:"Фото услуги",s_emoji:"Эмодзи (если нет фото)",
+ s_name:"Название (для двух языков: Тоҷикӣ / Русский)",s_price:"Цена «от … сомони» (пусто = договорная)",s_unit:"Цена за 1 единицу (для калькулятора; пусто = без калькулятора)",
+ s_fields:"Поля формы: каждое с новой строки. Пометки в конце: (ихтиёрӣ) = необязательно; (аз) = текущий уровень; (то) = нужный уровень; (шумора) = количество. Для двух языков: Тоҷикӣ / Русский",
+ s_acc:"Для этой услуги нужен аккаунт клиента (показывать предупреждение о бане)",s_act:"Включена (клиенты видят)",s_delimg:"Удалить фото",s_payT:"Реквизиты для оплаты (клиент увидит после подтверждения цены)",s_payPh:"Например: Alif 1234 5678 …, имя",s_saved:"Сохранено ✓",
+ now:"только что",m:" мин назад",h:" ч назад",d:" дн назад",left:"осталось: ",timeUp:"время вышло",mn:"мин"}
+};
+const WD={tg:["Яш","Дш","Сш","Чш","Пш","Ҷм","Шб"],ru:["Вс","Пн","Вт","Ср","Чт","Пт","Сб"]};
+const t=k=>T[lang][k]??T.tg[k]??k;
+const loc=s=>{const p=String(s).split(" / ");return p.length>1?(lang=="ru"?p[1]:p[0]).trim():String(s)};
+function setLang(l){lang=l;try{localStorage.setItem("lang",l)}catch(e){}api("/api/me",{lang:l}).catch(()=>{});home()}
+
+const LEG={th:"Town Hall",cur:"Сатҳи ҳозира / Текущий уровень",to:"Сатҳи дилхоҳ / Нужный уровень",tag:"Теги клан / Тег клана",what:"Чӣ / Что",times:"Чанд маротиба / Сколько раз",n:"Шумораи ҳамла / Кол-во атак",hall:"Capital Hall",title:"Чӣ мехоҳед / Что нужно",budget:"Буҷет / Бюджет"};
+const COL={new:"#FF8A8A",priced:"#F5B83D",unpaid:"#F5B83D",checking:"#D9A8FF",working:"#9DBBFF",done:"#4CC38A",rejected:"#9AA0C0",cancelled:"#9AA0C0"};
+const tag=s=>`<span class="tag" style="color:${COL[s]||COL.new}">${t("st_"+(COL[s]?s:"new"))}</span>`;
 let me=null,orders=[],SVC={},poll=null,rate=0,flt="all",more=false,svImg=null,avImg=null,lastN=-1;
 const sv=k=>SVC[k]||{name:k,icon:"🛠️",fields:[]};
 const ic=(s,z=40)=>`<div class="ic" style="width:${z}px;height:${z}px;font-size:${Math.round(z*.55)}px">${s.image?`<img src="${esc(s.image)}" alt="">`:esc(s.icon||"🛠️")}</div>`;
-const ago=iso=>{const m=Math.floor((Date.now()-Date.parse(iso))/6e4);return m<1?"ҳозир":m<60?m+" дақ пеш":m<1440?Math.floor(m/60)+" соат пеш":Math.floor(m/1440)+" рӯз пеш"};
+const ago=iso=>{const m=Math.floor((Date.now()-Date.parse(iso))/6e4);return m<1?t("now"):m<60?m+t("m"):m<1440?Math.floor(m/60)+t("h"):Math.floor(m/1440)+t("d")};
 const cd='class="card" style="cursor:default"';
 function prog(o){
  if(o.status!="working"||!o.started_at||!(+o.hours>0))return "";
  const tot=o.hours*36e5,el=Date.now()-Date.parse(o.started_at),p=Math.min(100,Math.max(0,el/tot*100)),left=Math.max(0,tot-el);
  const h=Math.floor(left/36e5),m=Math.floor(left%36e5/6e4);
- return `<div class="bar"><i style="width:${p.toFixed(1)}%"></i></div><div class="mut">${Math.floor(p)}% · ${p>=100?"вақт тамом шуд":"боқӣ: "+(h?h+" соат ":"")+m+" дақ"}</div>`;
+ return `<div class="bar"><i style="width:${p.toFixed(1)}%"></i></div><div class="mut">${Math.floor(p)}% · ${p>=100?t("timeUp"):t("left")+(h?h+" "+t("hrs")+" ":"")+m+" "+t("mn")}</div>`;
 }
+const todo=o=>me.admin?(o.status=="new"||o.status=="checking"):(o.status=="priced"||o.status=="unpaid");
 const nav=k=>{
- const nb=me.admin?orders.filter(o=>o.status=="new").length:orders.filter(o=>o.status=="priced").length;
- const t=[["o","Фармоиш","home",nb],["a","Эълон","ann",0]];
- if(me.admin)t.push(["f","Финанс","fin",0],["s","Хидмат","svc",0]);
- t.push(["p","Профил","prof",0]);
- return '<div class="nav">'+t.map(([i,l,f,n])=>`<span class="${k==i?"on":""}" onclick="hap();${f}()">${l}${n?`<i>${n}</i>`:""}</span>`).join("")+"</div>"};
-const wait=k=>{clearInterval(poll);A.innerHTML=nav(k)+'<p class="mut">Бор шуда истодааст…</p>'};
-const fail=k=>{A.innerHTML=nav(k)+"<p>Хато шуд.</p>"};
-const run=async(p,b)=>{try{await api(p,b);home()}catch(e){tg.showAlert("Хато шуд. Дубора кӯшиш кунед.")}};
+ const nb=orders.filter(todo).length;
+ const L=[["o","home",nb],["a","ann",0]];
+ if(me.admin)L.push(["f","fin",0],["s","svc",0]);
+ L.push(["p","prof",0]);
+ return `<div class="lang"><span class="chip${lang=="tg"?" on":""}" onclick="setLang('tg')">ТҶ</span><span class="chip${lang=="ru"?" on":""}" onclick="setLang('ru')">РУ</span></div><div class="nav">`+
+  L.map(([i,f,n])=>`<span class="${k==i?"on":""}" onclick="hap();${f}()">${t("n_"+i)}${n?`<i>${n}</i>`:""}</span>`).join("")+"</div>"};
+const wait=k=>{clearInterval(poll);A.innerHTML=nav(k)+`<p class="mut">${t("load")}</p>`};
+const fail=k=>{A.innerHTML=nav(k)+`<p>${t("err")}</p>`};
+const run=async(p,b)=>{try{await api(p,b);home()}catch(e){tg.showAlert(t("errRetry"))}};
 const loadSvc=async()=>{const s=await api("/api/services");SVC={};s.items.forEach(x=>SVC[x.key]=x)};
 
 /* ---------- расмҳо ---------- */
 const shrink=f=>new Promise((res,rej)=>{const i=new Image();i.onload=()=>{const k=Math.min(1,1280/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=i.width*k;c.height=i.height*k;c.getContext("2d").drawImage(i,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",.75))};i.onerror=rej;i.src=URL.createObjectURL(f)});
 const thumb=f=>new Promise((res,rej)=>{const i=new Image();i.onload=()=>{const c=document.createElement("canvas"),S=128;c.width=c.height=S;const x=c.getContext("2d");x.fillStyle="#262B55";x.fillRect(0,0,S,S);const m=Math.min(i.width,i.height);x.drawImage(i,(i.width-m)/2,(i.height-m)/2,m,m,0,0,S,S);res(c.toDataURL("image/jpeg",.8))};i.onerror=rej;i.src=URL.createObjectURL(f)});
+function showPic(box,src){const im=new Image();im.src=src;im.className="pic";im.onclick=()=>zoom(src);box.appendChild(im)}
+function zoom(src){const d=document.createElement("div");d.style.cssText="position:fixed;inset:0;background:#000;z-index:9;display:flex;align-items:center;justify-content:center";
+ const im=new Image();im.src=src;im.style.cssText="max-width:100%;max-height:100%";d.appendChild(im);d.onclick=()=>d.remove();document.body.appendChild(d)}
 
-/* ---------- фармоишҳо ---------- */
-const grp=o=>o.status=="new"?"new":(o.status=="priced"||o.status=="working")?"run":o.status=="done"?"done":"rej";
+/* ---------- ҳисобкунак ---------- */
+function estimate(s,vals){
+ if(!s.unit_price)return null;let fr=null,to=null,ct=null;
+ s.fields.forEach((f,i)=>{const n=parseFloat(vals[i]),v=isNaN(n)?null:n;if(f.role=="from")fr=v;else if(f.role=="to")to=v;else if(f.role=="count")ct=v});
+ if(fr!==null&&to!==null)return Math.max(0,to-fr)*s.unit_price;
+ if(ct!==null)return Math.max(0,ct)*s.unit_price;
+ return null;
+}
+function calcEst(k){const s=SVC[k],e=estimate(s,s.fields.map((f,i)=>g("f_"+i).value));g("est").textContent=e===null?"":t("est")+": "+e+" "+t("som")}
+
+/* ---------- рӯйхати фармоишҳо ---------- */
+const grp=o=>o.status=="new"?"new":["priced","unpaid","checking","working"].includes(o.status)?"run":o.status=="done"?"done":"rej";
 function card(o){
- const s=sv(o.service),t=ST[o.status]||ST.new;
- return `<div class="card" style="border-left-color:${t[1]}" onclick="detail(${+o.id})"><div class="row"><div style="display:flex;gap:10px;align-items:center">${ic(s)}<div><b>${esc(s.name)}</b><div class="mut">#${+o.id} · ${ago(o.created_at)}${me.admin?" · @"+esc(o.users?.username||o.users?.name||o.user_id):""}</div></div></div>${tag(o.status)}</div>${o.price?`<div class="gold" style="margin-top:8px">${+o.price} сомонӣ</div>`:""}${prog(o)}</div>`}
+ const s=sv(o.service);
+ return `<div class="card" style="border-left-color:${COL[o.status]||COL.new}" onclick="detail(${+o.id})"><div class="row"><div style="display:flex;gap:10px;align-items:center">${ic(s)}<div><b>${esc(loc(s.name))}</b><div class="mut">#${+o.id} · ${ago(o.created_at)}${me.admin?" · @"+esc(o.users?.username||o.users?.name||o.user_id):""}</div></div></div>${tag(o.status)}</div>${o.price?`<div class="gold" style="margin-top:8px">${+o.price} ${t("som")}</div>`:""}${prog(o)}</div>`}
 async function home(){
  clearInterval(poll);
- A.innerHTML='<p class="mut" style="padding:20px 0">Бор шуда истодааст…</p>';
- try{me=me||await api("/api/me");const [o]=await Promise.all([api("/api/orders"),loadSvc()]);orders=o.orders}
- catch(e){A.innerHTML='<p style="padding:20px 0">Хато шуд. Барномаро дубора кушоед.</p>';return}
+ A.innerHTML=`<p class="mut" style="padding:20px 0">${t("load")}</p>`;
+ try{me=me||await api("/api/me",{lang});const [o]=await Promise.all([api("/api/orders"),loadSvc()]);orders=o.orders}
+ catch(e){A.innerHTML=`<p style="padding:20px 0">${t("errOpen")}</p>`;return}
  listView();
 }
 function listView(){
  const c=k=>orders.filter(o=>grp(o)==k).length;
- const chips=[["all","Ҳама",orders.length],["new","Нав",c("new")],["run","Дар ҷараён",c("run")],["done","Тайёр",c("done")]];
+ const chips=[["all",t("f_all"),orders.length],["new",t("f_new"),c("new")],["run",t("f_run"),c("run")],["done",t("f_done"),c("done")]];
  let body;
  if(flt=="all"){
   const act=orders.filter(o=>grp(o)=="new"||grp(o)=="run"),rest=orders.filter(o=>grp(o)=="done"||grp(o)=="rej");
-  body=act.map(card).join("")||'<p class="mut">Фармоиши фаъол нест. 🛡️</p>';
-  if(rest.length)body+=`<div class="chip" style="display:inline-block;margin-bottom:10px" onclick="more=!more;listView()">${more?"Пинҳон кардан ▴":"Дигар ("+rest.length+") ▾"}</div>`+(more?rest.map(card).join(""):"");
- }else body=orders.filter(o=>grp(o)==flt).map(card).join("")||'<p class="mut">Ин ҷо холӣ аст.</p>';
- A.innerHTML=nav("o")+`<h2>${me.admin?"Панели шумо":"Салом, "+esc(me.name)}</h2>`+
+  body=act.map(card).join("")||`<p class="mut">${t("noact")}</p>`;
+  if(rest.length)body+=`<div class="chip" style="display:inline-block;margin-bottom:10px" onclick="more=!more;listView()">${more?t("hide")+" ▴":t("others")+" ("+rest.length+") ▾"}</div>`+(more?rest.map(card).join(""):"");
+ }else body=orders.filter(o=>grp(o)==flt).map(card).join("")||`<p class="mut">${t("empty")}</p>`;
+ A.innerHTML=nav("o")+`<h2>${me.admin?t("admin"):t("hello")+" "+esc(me.name)}</h2>`+
   `<div class="chips">${chips.map(([k,l,n])=>`<span class="chip${flt==k?" on":""}" onclick="hap();flt='${k}';listView()">${l} ${n}</span>`).join("")}</div>`+body+
-  (me.admin?"":'<button class="btn" onclick="pick()">+ Дархости нав</button>');
+  (me.admin?"":`<button class="btn" onclick="pick()">${t("newreq")}</button>`);
 }
 function pick(){
  const it=Object.values(SVC).filter(x=>x.active);
- A.innerHTML='<span class="back" onclick="home()">← Бозгашт</span><h2>Хидматро интихоб кунед</h2><div class="grid">'+
-  it.map(s=>`<div class="sv${s.key=="custom"?" x":""}" onclick="form('${esc(s.key)}')">${ic(s,46)}<b style="display:block;margin-top:8px">${esc(s.name)}</b><div class="mut">${s.price?"аз "+(+s.price)+" сомонӣ":"Нархро ман мегӯям"}</div></div>`).join("")+"</div>";
+ A.innerHTML=`<span class="back" onclick="home()">${t("back")}</span><h2>${t("pick")}</h2><div class="grid">`+
+  it.map(s=>`<div class="sv${s.key=="custom"?" x":""}" onclick="form('${esc(s.key)}')">${ic(s,46)}<b style="display:block;margin-top:8px">${esc(loc(s.name))}</b><div class="mut">${s.price?t("from")+" "+(+s.price)+" "+t("som"):t("nego")}</div></div>`).join("")+"</div>";
 }
 function form(k){
  const s=SVC[k];
- A.innerHTML=`<span class="back" onclick="pick()">← Бозгашт</span><div style="display:flex;gap:10px;align-items:center;margin:4px 0 4px">${ic(s,42)}<h2 style="margin:0">${esc(s.name)}</h2></div>`+
-  s.fields.map((f,i)=>`<label>${esc(f.label)}${f.opt?" (ихтиёрӣ)":""}</label><input id="f_${i}" type="${f.type=="number"?"number":"text"}" inputmode="${f.type=="number"?"numeric":"text"}">`).join("")+
-  `<label>Шарҳ</label><textarea id="note"></textarea><label>Скриншот</label><input id="img" type="file" accept="image/*">`+
-  (s.acc?`<label class="chk" style="margin-top:14px"><input type="checkbox" id="ok">Мефаҳмам, ки барои ин хидмат аккаунт лозим аст ва Supercell онро манъ мекунад. Хавфи бан бар души ман.</label>`:"")+
-  `<p class="err" id="err"></p><button class="btn" id="go" onclick="send('${esc(k)}')">Фиристодан</button>`;
+ A.innerHTML=`<span class="back" onclick="pick()">${t("back")}</span><div style="display:flex;gap:10px;align-items:center;margin:4px 0 4px">${ic(s,42)}<h2 style="margin:0">${esc(loc(s.name))}</h2></div>`+
+  s.fields.map((f,i)=>`<label>${esc(loc(f.label))}${f.opt?" "+t("opt"):""}</label><input id="f_${i}" type="${f.type=="number"?"number":"text"}" inputmode="${f.type=="number"?"numeric":"text"}" oninput="calcEst('${esc(k)}')">`).join("")+
+  `<div class="gold" id="est" style="margin-top:12px"></div><label>${t("note")}</label><textarea id="note"></textarea><label>${t("shot")}</label><input id="img" type="file" accept="image/*">`+
+  (s.acc?`<label class="chk" style="margin-top:14px"><input type="checkbox" id="ok">${t("consent")}</label>`:"")+
+  `<p class="err" id="err"></p><button class="btn" id="go" onclick="send('${esc(k)}')">${t("send")}</button>`;
 }
 async function send(k){
  const s=SVC[k],data={};
- for(let i=0;i<s.fields.length;i++){const f=s.fields[i],v=g("f_"+i).value.trim();if(!v&&!f.opt){g("err").textContent="Пур кунед: "+f.label;return}if(v)data[f.label]=v}
- if(s.acc&&!g("ok").checked){g("err").textContent="Розигиро тасдиқ кунед";return}
- g("go").disabled=true;g("err").textContent="Фиристода истодааст…";
+ for(let i=0;i<s.fields.length;i++){const f=s.fields[i],v=g("f_"+i).value.trim();if(!v&&!f.opt){g("err").textContent=t("fill")+loc(f.label);return}if(v)data[f.label]=v}
+ if(s.acc&&!g("ok").checked){g("err").textContent=t("consentNeed");return}
+ g("go").disabled=true;g("err").textContent=t("sending");
  try{const f=g("img").files[0];
   await api("/api/orders/create",{service:k,data,note:g("note").value.trim(),image:f?await shrink(f):null});
   try{tg.HapticFeedback.notificationOccurred("success")}catch(e){}
   home()}
- catch(e){g("err").textContent="Хато шуд. Дубора кӯшиш кунед.";g("go").disabled=false}
+ catch(e){g("err").textContent=t("errRetry");g("go").disabled=false}
 }
+
+/* ---------- тафсилоти фармоиш ---------- */
 function detail(id){
- const o=orders.find(x=>x.id==id),s=sv(o.service);
- const rows=Object.entries(o.data||{}).map(([k,v])=>`<div class="row"><span class="mut">${esc(LEG[k]||k)}</span><b>${esc(v)}</b></div>`).join("");
+ const o=orders.find(x=>x.id==id),s=sv(o.service),st=o.status,ad=me.admin;
+ const rows=Object.entries(o.data||{}).map(([k,v])=>`<div class="row"><span class="mut">${esc(loc(LEG[k]||k))}</span><b>${esc(v)}</b></div>`).join("");
+ const priceCard=`<div ${cd}><div class="gold" style="font-size:24px">${+o.price} ${t("som")}</div>${+o.hours?`<div class="mut">${t("term")}: ${t("about")} ${+o.hours} ${t("hrs")}</div>`:""}</div>`;
  let act="";
- if(me.admin){
-  if(o.status=="new"||o.status=="priced")act=`<label>Нарх, сомонӣ</label><input id="pr" type="number" min="0" value="${+o.price||""}"><label>Чанд соат кор мекашад (прогресс худаш пур мешавад)</label><input id="hr" type="number" min="0" step="0.5" value="${+o.hours||""}"><button class="btn" onclick="setPrice(${+o.id})">Нарх фиристодан</button>`;
-  if(o.status=="working")act=`<button class="btn ok" onclick="run('/api/orders/finish',{id:${+o.id}})">Тайёр шуд</button>`;
- }else if(o.status=="done"&&!o.reviewed)act=`<label>Баҳо диҳед</label><div id="stars" style="font-size:34px;color:var(--gold)">${[1,2,3,4,5].map(i=>`<span onclick="star(${i})">☆</span>`).join("")}</div><textarea id="rt" placeholder="Шарҳ (ихтиёрӣ)"></textarea><button class="btn" onclick="rev(${+o.id})">Фиристодан</button>`;
- else if(o.status=="priced")act=`<div ${cd}><div class="gold" style="font-size:24px">${+o.price} сомонӣ</div>${+o.hours?`<div class="mut">Муддат: тақрибан ${+o.hours} соат</div>`:""}</div><div class="grid"><button class="btn ok" onclick="run('/api/orders/confirm',{id:${+o.id},accept:true})">Тасдиқ</button><button class="btn g" onclick="run('/api/orders/confirm',{id:${+o.id},accept:false})">Рад кардан</button></div>`;
- A.innerHTML=`<span class="back" onclick="home()">← Бозгашт</span><div style="display:flex;gap:10px;align-items:center;margin:4px 0 12px">${ic(s,48)}<div><h2 style="margin:0">${esc(s.name)}</h2><div class="mut">#${+o.id} · ${ago(o.created_at)}</div></div></div><div class="row"><span class="mut">Статус</span>${tag(o.status)}</div>`+
-  (me.admin?`<div class="row"><span class="mut">Клиент</span><b>@${esc(o.users?.username||o.users?.name||o.user_id)}</b></div>`:"")+rows+
+ if(ad){
+  if(st=="new"||st=="priced")act=`<label>${t("priceLbl")}${o.est_price?" · "+t("estHint")+" "+(+o.est_price):""}</label><input id="pr" type="number" min="0" value="${+o.price||+o.est_price||""}"><label>${t("hoursLbl")}</label><input id="hr" type="number" min="0" step="0.5" value="${+o.hours||""}"><button class="btn" onclick="setPrice(${+o.id})">${t("priceBtn")}</button>`;
+  else if(st=="checking")act=`<p class="mut">${t("receiptTitle")}</p><div id="rc"></div><div class="grid"><button class="btn ok" onclick="run('/api/orders/paycheck',{id:${+o.id},ok:true})">${t("payOk")}</button><button class="btn g" onclick="run('/api/orders/paycheck',{id:${+o.id},ok:false})">${t("payBad")}</button></div>`;
+  else if(st=="working")act=`<label>${t("resultLbl")}</label><input id="rs" type="file" accept="image/*"><button class="btn ok" onclick="finish(${+o.id})">${t("finish")}</button>`;
+  else if(st=="done")act=`<p class="mut">${t("resultTitle")}</p><div id="rc"></div><label>${t("addResult")}</label><input id="rs" type="file" accept="image/*"><button class="btn g" onclick="addRes(${+o.id})">${t("send")}</button>`;
+  if(!["done","cancelled","rejected"].includes(st))act+=`<label>${t("reasonPh")}</label><input id="cr"><button class="btn g" onclick="cancel(${+o.id})">${t("cancel")}</button>`;
+ }else{
+  if(st=="priced")act=priceCard+`<div class="grid"><button class="btn ok" onclick="run('/api/orders/confirm',{id:${+o.id},accept:true})">${t("accept")}</button><button class="btn g" onclick="run('/api/orders/confirm',{id:${+o.id},accept:false})">${t("decline")}</button></div>`;
+  else if(st=="unpaid")act=priceCard+`<h2 style="font-size:17px;margin-top:16px">${t("payTitle")}</h2><div ${cd} id="pi" style="white-space:pre-wrap">…</div><label>${t("receiptLbl")}</label><input id="rs" type="file" accept="image/*"><p class="err" id="err"></p><button class="btn" onclick="payRc(${+o.id})">${t("sendReceipt")}</button>`;
+  else if(st=="checking")act=`<div ${cd}>${t("checkingMsg")}</div>`;
+  else if(st=="done"){act=`<p class="mut">${t("resultTitle")}</p><div id="rc"></div>`;
+   if(!o.reviewed)act+=`<label>${t("rate")}</label><div id="stars" style="font-size:34px;color:var(--gold)">${[1,2,3,4,5].map(i=>`<span onclick="star(${i})">☆</span>`).join("")}</div><textarea id="rt" placeholder="${t("reviewPh")}"></textarea><button class="btn" onclick="rev(${+o.id})">${t("send")}</button>`}
+  if(["new","priced","unpaid","checking"].includes(st))act+=`<button class="btn g" onclick="cancel(${+o.id})">${t("cancel")}</button>`;
+ }
+ A.innerHTML=`<span class="back" onclick="home()">${t("back")}</span><div style="display:flex;gap:10px;align-items:center;margin:4px 0 12px">${ic(s,48)}<div><h2 style="margin:0">${esc(loc(s.name))}</h2><div class="mut">#${+o.id} · ${ago(o.created_at)}</div></div></div><div class="row"><span class="mut">${t("status")}</span>${tag(st)}</div>`+
+  (ad?`<div class="row"><span class="mut">${t("client")}</span><b>@${esc(o.users?.username||o.users?.name||o.user_id)}</b></div>`:"")+rows+
   (o.note?`<div ${cd} style="cursor:default;margin-top:10px">${esc(o.note)}</div>`:"")+
-  (o.has_image?'<div id="shot" class="mut" style="margin:10px 0">Скриншот бор мешавад…</div>':"")+
-  (o.price&&o.status!="priced"?`<div class="row"><span class="mut">Нарх</span><span class="gold">${+o.price} сомонӣ</span></div>`:"")+
-  (+o.hours&&o.status!="priced"?`<div class="row"><span class="mut">Муддат</span><span>~${+o.hours} соат</span></div>`:"")+
-  prog(o)+act+`<button class="btn g" onclick="chat(${+o.id})">💬 Чат</button>`;
+  (o.cancel_reason?`<div ${cd}>${t("reasonLbl")} ${esc(o.cancel_reason)}</div>`:"")+
+  (o.has_image?`<div id="shot" class="mut" style="margin:10px 0">${t("shotLoad")}</div>`:"")+
+  (o.price&&st!="priced"&&st!="unpaid"?`<div class="row"><span class="mut">${t("price")}</span><span class="gold">${+o.price} ${t("som")}</span></div>`:"")+
+  (+o.hours&&st!="priced"&&st!="unpaid"?`<div class="row"><span class="mut">${t("term")}</span><span>~${+o.hours} ${t("hrs")}</span></div>`:"")+
+  prog(o)+act+`<button class="btn g" onclick="chat(${+o.id})">${t("chat")}</button>`;
  if(o.has_image)loadShot(o.id);
+ if(g("rc"))loadFiles(o.id,st=="checking"?"receipt":"result");
+ if(g("pi"))api("/api/settings").then(r=>{const b=g("pi");if(b)b.textContent=r.pay_info||t("payEmpty")}).catch(()=>{});
 }
-function setPrice(id){const v=+g("pr").value;if(v>0)run("/api/orders/price",{id,price:v,hours:+g("hr").value||0})}
-function star(i){rate=i;g("stars").innerHTML=[1,2,3,4,5].map(n=>`<span onclick="star(${n})">${n<=i?"★":"☆"}</span>`).join("")}
-async function rev(id){if(!rate){tg.showAlert("Баҳо интихоб кунед.");return}
- try{await api("/api/review/create",{id,rating:rate,text:g("rt").value.trim()});rate=0;home()}catch(e){tg.showAlert("Хато шуд.")}}
 async function loadShot(id){
  const b=g("shot");
  try{const r=await api("/api/orders/image",{id});if(!b)return;
   if(!r.image){b.remove();return}
-  const im=new Image();im.src=r.image;im.style.cssText="width:100%;border-radius:14px;margin:10px 0;display:block";
-  im.onclick=()=>zoom(r.image);b.replaceWith(im)}
- catch(e){if(b)b.textContent="Скриншот кушода нашуд."}
+  const w=document.createElement("div");showPic(w,r.image);b.replaceWith(w)}
+ catch(e){if(b)b.textContent=t("shotFail")}
 }
-function zoom(src){const d=document.createElement("div");d.style.cssText="position:fixed;inset:0;background:#000;z-index:9;display:flex;align-items:center;justify-content:center";
- const im=new Image();im.src=src;im.style.cssText="max-width:100%;max-height:100%";d.appendChild(im);d.onclick=()=>d.remove();document.body.appendChild(d)}
+async function loadFiles(id,kind){
+ const b=g("rc");if(!b)return;b.innerHTML="";
+ try{const r=await api("/api/orders/files",{id,kind});r.files.forEach(f=>showPic(b,f))}catch(e){}
+}
+function setPrice(id){const v=+g("pr").value;if(v>0)run("/api/orders/price",{id,price:v,hours:+g("hr").value||0})}
+async function payRc(id){
+ const f=g("rs").files[0];if(!f){g("err").textContent=t("receiptNeed");return}
+ try{await api("/api/orders/pay",{id,image:await shrink(f)});home()}catch(e){g("err").textContent=t("errRetry")}
+}
+async function finish(id){
+ const f=g("rs").files[0];
+ try{if(f)await api("/api/orders/result",{id,image:await shrink(f)});await api("/api/orders/finish",{id});home()}catch(e){tg.showAlert(t("errRetry"))}
+}
+async function addRes(id){
+ const f=g("rs").files[0];if(!f)return;
+ try{await api("/api/orders/result",{id,image:await shrink(f)});g("rs").value="";loadFiles(id,"result")}catch(e){tg.showAlert(t("errRetry"))}
+}
+function cancel(id){tg.showConfirm(t("cancelAsk"),ok=>{if(ok)run("/api/orders/cancel",{id,reason:g("cr")?g("cr").value.trim():""})})}
+function star(i){rate=i;g("stars").innerHTML=[1,2,3,4,5].map(n=>`<span onclick="star(${n})">${n<=i?"★":"☆"}</span>`).join("")}
+async function rev(id){if(!rate){tg.showAlert(t("rateNeed"));return}
+ try{await api("/api/review/create",{id,rating:rate,text:g("rt").value.trim()});rate=0;home()}catch(e){tg.showAlert(t("err"))}}
 
 /* ---------- чат ---------- */
-const Q=["Кор оғоз шуд","Имрӯз тайёр мешавад","Скриншоти нави базаро фиристед"];
+const Q=()=>[t("q1"),t("q2"),t("q3")];
 async function chat(id){
  clearInterval(poll);lastN=-1;
- A.innerHTML=`<span class="back" onclick="clearInterval(poll);detail(${id})">← Бозгашт</span><h2>💬 Чат · #${id}</h2><div id="msgs" class="msgs"></div>`+
-  (me.admin?`<div class="chips">${Q.map((q,i)=>`<span class="chip" onclick="quick(${id},${i})">${q}</span>`).join("")}</div>`:"")+
-  `<div class="send"><input id="mt" placeholder="Паём нависед" onkeydown="if(event.key=='Enter')say(${id})"><button class="sb" onclick="say(${id})">➤</button></div>`;
+ A.innerHTML=`<span class="back" onclick="clearInterval(poll);detail(${id})">${t("back")}</span><h2>💬 ${t("chatT")} · #${id}</h2><div id="msgs" class="msgs"></div>`+
+  (me.admin?`<div class="chips">${Q().map((q,i)=>`<span class="chip" onclick="quick(${id},${i})">${esc(q)}</span>`).join("")}</div>`:"")+
+  `<div class="send"><input id="mt" placeholder="${t("msgPh")}" onkeydown="if(event.key=='Enter')say(${id})"><button class="sb" onclick="say(${id})">➤</button></div>`;
  await loadChat(id,true);poll=setInterval(()=>loadChat(id,false),5000);
 }
 async function loadChat(id,first){
  try{const m=(await api("/api/chat/list",{id})).messages,box=g("msgs");
   if(!box||(!first&&m.length==lastN))return;lastN=m.length;
-  box.innerHTML=m.length?m.map(x=>`<div class="m${x.mine?" me":""}">${esc(x.text)}</div>`).join(""):'<p class="mut">Ҳоло паём нест.</p>';
+  box.innerHTML=m.length?m.map(x=>`<div class="m${x.mine?" me":""}">${esc(x.text)}</div>`).join(""):`<p class="mut">${t("noMsgs")}</p>`;
   window.scrollTo(0,document.body.scrollHeight)}catch(e){}
 }
-async function say(id){const i=g("mt"),t=i.value.trim();if(!t)return;i.value="";
- try{await api("/api/chat/send",{id,text:t});await loadChat(id,true)}catch(e){tg.showAlert("Хато шуд.")}}
-const quick=(id,i)=>{g("mt").value=Q[i];say(id)};
+async function say(id){const i=g("mt"),v=i.value.trim();if(!v)return;i.value="";
+ try{await api("/api/chat/send",{id,text:v});await loadChat(id,true)}catch(e){tg.showAlert(t("err"))}}
+const quick=(id,i)=>{g("mt").value=Q()[i];say(id)};
 
 /* ---------- эълонҳо ---------- */
 async function ann(){
  wait("a");let it;try{it=(await api("/api/ann/list")).items}catch(e){fail("a");return}
- A.innerHTML=nav("a")+(me.admin?`<div ${cd}><label style="margin-top:0">Эълони нав</label><input id="at" placeholder="Сарлавҳа"><label>Матн</label><textarea id="ab"></textarea><label class="chk"><input type="checkbox" id="ap">Пин кардан (дар боло мемонад)</label><button class="btn" onclick="annSend()">Ба ҳама фиристодан</button></div>`:"")+
-  (it.length?it.map(x=>`<div ${cd}>${x.pinned?'<div class="gold">📌 Муҳим</div>':""}<b>${esc(x.title)}</b><p style="margin:6px 0 0;white-space:pre-wrap">${esc(x.text)}</p><div class="mut" style="margin-top:6px">${ago(x.created_at)}${me.admin?` · <span style="cursor:pointer" onclick="annDel(${+x.id})">🗑 Нест кардан</span>`:""}</div></div>`).join(""):'<p class="mut">Ҳоло эълон нест. 📢</p>');
+ A.innerHTML=nav("a")+(me.admin?`<div ${cd}><label style="margin-top:0">${t("a_new")}</label><input id="at" placeholder="${t("a_title")}"><label>${t("a_text")}</label><textarea id="ab"></textarea><label class="chk"><input type="checkbox" id="ap">${t("a_pin")}</label><button class="btn" onclick="annSend()">${t("a_send")}</button></div>`:"")+
+  (it.length?it.map(x=>`<div ${cd}>${x.pinned?`<div class="gold">${t("a_imp")}</div>`:""}<b>${esc(x.title)}</b><p style="margin:6px 0 0;white-space:pre-wrap">${esc(x.text)}</p><div class="mut" style="margin-top:6px">${ago(x.created_at)}${me.admin?` · <span style="cursor:pointer" onclick="annDel(${+x.id})">${t("a_del")}</span>`:""}</div></div>`).join(""):`<p class="mut">${t("a_none")}</p>`);
 }
-async function annSend(){const t=g("at").value.trim();if(!t)return;
- try{await api("/api/ann/create",{title:t,text:g("ab").value.trim(),pinned:g("ap").checked});ann()}catch(e){tg.showAlert("Хато шуд.")}}
-function annDel(id){tg.showConfirm("Нест карда шавад?",async ok=>{if(!ok)return;try{await api("/api/ann/delete",{id});ann()}catch(e){tg.showAlert("Хато шуд.")}})}
+async function annSend(){const v=g("at").value.trim();if(!v)return;
+ try{await api("/api/ann/create",{title:v,text:g("ab").value.trim(),pinned:g("ap").checked});ann()}catch(e){tg.showAlert(t("err"))}}
+function annDel(id){tg.showConfirm(t("a_ask"),async ok=>{if(!ok)return;try{await api("/api/ann/delete",{id});ann()}catch(e){tg.showAlert(t("err"))}})}
 
 /* ---------- финанс ---------- */
 async function fin(){
  wait("f");let d;try{d=await api("/api/finance")}catch(e){fail("f");return}
- const mx=Math.max(1,...d.days),W=["Яш","Дш","Сш","Чш","Пш","Ҷм","Шб"],t=Date.now();
- const lab=d.days.map((_,i)=>W[new Date(t-(6-i)*864e5).getDay()]);
+ const mx=Math.max(1,...d.days),W=WD[lang],now=Date.now();
+ const lab=d.days.map((_,i)=>W[new Date(now-(6-i)*864e5).getDay()]);
  const box=(l,v)=>`<div ${cd}><div class="mut">${l}</div><b style="font-size:20px">${+v}</b></div>`;
- A.innerHTML=nav("f")+`<div class="card" style="cursor:default;border:1px solid var(--gold)"><div class="mut">Даромади 7 рӯз</div><div class="gold" style="font-size:32px">${+d.week} <span class="mut" style="font-size:14px;font-weight:400">сомонӣ</span></div><div style="display:flex;align-items:flex-end;gap:6px;height:70px;margin-top:10px">${d.days.map(v=>`<div style="flex:1;border-radius:4px;background:${v==mx&&v>0?"var(--gold)":"#3A3F6B"};height:${Math.max(4,v/mx*100)}%"></div>`).join("")}</div><div style="display:flex;gap:6px;font-size:11px;color:var(--mut);text-align:center;margin-top:4px">${lab.map(l=>`<span style="flex:1">${l}</span>`).join("")}</div></div><div class="grid">${box("Дар 30 рӯз",d.month)}${box("Ҳамагӣ",d.total)}${box("Дар кор (нарх)",d.wait)}${box("Фармоиши тайёр",d.count)}</div>`;
+ A.innerHTML=nav("f")+`<div class="card" style="cursor:default;border:1px solid var(--gold)"><div class="mut">${t("f_week")}</div><div class="gold" style="font-size:32px">${+d.week} <span class="mut" style="font-size:14px;font-weight:400">${t("som")}</span></div><div style="display:flex;align-items:flex-end;gap:6px;height:70px;margin-top:10px">${d.days.map(v=>`<div style="flex:1;border-radius:4px;background:${v==mx&&v>0?"var(--gold)":"#3A3F6B"};height:${Math.max(4,v/mx*100)}%"></div>`).join("")}</div><div style="display:flex;gap:6px;font-size:11px;color:var(--mut);text-align:center;margin-top:4px">${lab.map(l=>`<span style="flex:1">${l}</span>`).join("")}</div></div><div class="grid">${box(t("f_month"),d.month)}${box(t("f_total"),d.total)}${box(t("f_work"),d.wait)}${box(t("f_cnt"),d.count)}</div>`;
 }
 
 /* ---------- профил ---------- */
@@ -216,52 +320,57 @@ const av=(u,z)=>`<div class="ic" style="width:${z}px;height:${z}px;border-radius
 async function prof(){
  wait("p");let d;try{d=await api("/api/profile")}catch(e){fail("p");return}
  const st=n=>"★".repeat(n)+"☆".repeat(5-n),m=d.master;
- const head=(u,t)=>`<div style="text-align:center;margin:6px 0 14px"><div style="display:flex;justify-content:center;margin-bottom:8px">${av(u,72)}</div><h2 style="margin:0">${esc(u.name)}</h2><div class="mut">${t}</div>${u.about?`<p style="margin:8px 0 0;white-space:pre-wrap">${esc(u.about)}</p>`:""}<span class="chip" style="display:inline-block;margin-top:10px" onclick="profEdit()">✏️ Таҳрири профил</span></div>`;
+ const head=(u,sub)=>`<div style="text-align:center;margin:6px 0 14px"><div style="display:flex;justify-content:center;margin-bottom:8px">${av(u,72)}</div><h2 style="margin:0">${esc(u.name)}</h2><div class="mut">${sub}</div>${u.about?`<p style="margin:8px 0 0;white-space:pre-wrap">${esc(u.about)}</p>`:""}<span class="chip" style="display:inline-block;margin-top:10px" onclick="profEdit()">${t("p_edit")}</span></div>`;
  window._me=d.me;
- A.innerHTML=nav("p")+(me.admin?"":head(d.me,"Профили ман")+'<hr style="border:0;border-top:1px solid var(--card2);margin:16px 0">')+
-  (me.admin?head(m,"Мутахассис"):`<div style="text-align:center;margin-bottom:12px;display:flex;flex-direction:column;align-items:center;gap:6px">${av(m,48)}<b>${esc(m.name)}</b><div class="mut">Мутахассис${m.about?" · "+esc(m.about):""}</div></div>`)+
-  `<div class="grid"><div ${cd}><div class="gold" style="font-size:22px">${+m.avg||"—"}</div><div class="mut">Рейтинг</div></div><div ${cd}><div style="font-size:22px">${+m.done}</div><div class="mut">Фармоиши тайёр</div></div></div><p class="mut">Шарҳҳо (${+m.count})</p>`+
-  (m.reviews.length?m.reviews.map(r=>`<div ${cd}><div class="row"><b>${esc(r.name)}</b><span class="gold">${st(+r.rating)}</span></div>${r.text?`<p style="margin:4px 0 0">${esc(r.text)}</p>`:""}</div>`).join(""):'<p class="mut">Ҳоло шарҳ нест.</p>');
+ A.innerHTML=nav("p")+(me.admin?"":head(d.me,t("p_my"))+'<hr style="border:0;border-top:1px solid var(--card2);margin:16px 0">')+
+  (me.admin?head(m,t("p_master")):`<div style="text-align:center;margin-bottom:12px;display:flex;flex-direction:column;align-items:center;gap:6px">${av(m,48)}<b>${esc(m.name)}</b><div class="mut">${t("p_master")}${m.about?" · "+esc(m.about):""}</div></div>`)+
+  `<div class="grid"><div ${cd}><div class="gold" style="font-size:22px">${+m.avg||"—"}</div><div class="mut">${t("p_rating")}</div></div><div ${cd}><div style="font-size:22px">${+m.done}</div><div class="mut">${t("p_done")}</div></div></div><p class="mut">${t("p_rev")} (${+m.count})</p>`+
+  (m.reviews.length?m.reviews.map(r=>`<div ${cd}><div class="row"><b>${esc(r.name)}</b><span class="gold">${st(+r.rating)}</span></div>${r.text?`<p style="margin:4px 0 0">${esc(r.text)}</p>`:""}</div>`).join(""):`<p class="mut">${t("p_norev")}</p>`);
 }
 function profEdit(){
  const u=window._me;avImg=null;
- A.innerHTML=`<span class="back" onclick="prof()">← Бозгашт</span><h2>Таҳрири профил</h2><div style="display:flex;gap:12px;align-items:center"><div id="avp">${av(u,64)}</div><div style="flex:1"><label style="margin:0 0 4px">Расм</label><input type="file" accept="image/*" onchange="avPick(this)"></div></div><label>Ном</label><input id="pn" maxlength="40" value="${esc(u.name)}"><label>Дар бораи худ</label><textarea id="pa" maxlength="300">${esc(u.about)}</textarea><p class="err" id="err"></p><button class="btn" onclick="profSave()">Нигоҳ доштан</button>`;
+ A.innerHTML=`<span class="back" onclick="prof()">${t("back")}</span><h2>${t("p_editT")}</h2><div style="display:flex;gap:12px;align-items:center"><div id="avp">${av(u,64)}</div><div style="flex:1"><label style="margin:0 0 4px">${t("p_photo")}</label><input type="file" accept="image/*" onchange="avPick(this)"></div></div><label>${t("p_name")}</label><input id="pn" maxlength="40" value="${esc(u.name)}"><label>${t("p_about")}</label><textarea id="pa" maxlength="300">${esc(u.about)}</textarea><p class="err" id="err"></p><button class="btn" onclick="profSave()">${t("save")}</button>`;
 }
 async function avPick(i){if(i.files[0]){avImg=await thumb(i.files[0]);g("avp").innerHTML=av({avatar:avImg,name:"?"},64)}}
 async function profSave(){
- const name=g("pn").value.trim();if(!name){g("err").textContent="Ном нависед";return}
- try{await api("/api/profile/update",{name,about:g("pa").value.trim(),avatar:avImg});me.name=name;prof()}catch(e){g("err").textContent="Хато шуд."}
+ const name=g("pn").value.trim();if(!name){g("err").textContent=t("nameNeed");return}
+ try{await api("/api/profile/update",{name,about:g("pa").value.trim(),avatar:avImg});me.name=name;prof()}catch(e){g("err").textContent=t("err")}
 }
 
 /* ---------- идораи хидматҳо (админ) ---------- */
-function svc(){
- clearInterval(poll);
- A.innerHTML=nav("s")+'<p class="mut">✏️ барои таҳрири ном, расм ва форма. Ҷевон барои фаъол ё хомӯш кардан.</p>'+
-  Object.values(SVC).map(x=>`<div ${cd}><div class="row"><div style="display:flex;gap:10px;align-items:center">${ic(x)}<div><b>${esc(x.name)}</b><div class="mut">${x.price?"аз "+(+x.price)+" сомонӣ":"Нарх мувофиқа"}</div></div></div><div style="display:flex;gap:14px;align-items:center"><span style="font-size:20px;cursor:pointer" onclick="svcEdit('${esc(x.key)}')">✏️</span><input type="checkbox" class="sw" ${x.active?"checked":""} onchange="svcTog('${esc(x.key)}',this.checked)"></div></div></div>`).join("")+
-  '<button class="btn" onclick="svcEdit(\'\')">+ Хидмати нав</button>';
+async function svc(){
+ wait("s");let pi="";try{pi=(await api("/api/settings")).pay_info}catch(e){}
+ A.innerHTML=nav("s")+`<div ${cd}><label style="margin-top:0">${t("s_payT")}</label><textarea id="pay" placeholder="${t("s_payPh")}">${esc(pi)}</textarea><button class="btn g" onclick="paySave()">${t("save")}</button></div><p class="mut">${t("s_hint")}</p>`+
+  Object.values(SVC).map(x=>`<div ${cd}><div class="row"><div style="display:flex;gap:10px;align-items:center">${ic(x)}<div><b>${esc(loc(x.name))}</b><div class="mut">${x.price?t("from")+" "+(+x.price)+" "+t("som"):t("noprice")}</div></div></div><div style="display:flex;gap:14px;align-items:center"><span style="font-size:20px;cursor:pointer" onclick="svcEdit('${esc(x.key)}')">✏️</span><input type="checkbox" class="sw" ${x.active?"checked":""} onchange="svcTog('${esc(x.key)}',this.checked)"></div></div></div>`).join("")+
+  `<button class="btn" onclick="svcEdit('')">${t("s_new")}</button>`;
 }
-async function svcTog(key,on){try{await api("/api/services/toggle",{key,active:on});SVC[key].active=on}catch(e){tg.showAlert("Хато шуд.")}}
+async function paySave(){try{await api("/api/settings/save",{pay_info:g("pay").value});tg.showAlert(t("s_saved"))}catch(e){tg.showAlert(t("err"))}}
+async function svcTog(key,on){try{await api("/api/services/toggle",{key,active:on});SVC[key].active=on}catch(e){tg.showAlert(t("err"))}}
+const MK=/\((ихтиёрӣ|аз|то|шумора)\)\s*$/,RL={"аз":"from","то":"to","шумора":"count"},RB={from:"аз",to:"то",count:"шумора"};
+function parseLine(x){let opt=false,role=null,l=x.trim(),m;while((m=l.match(MK))){if(m[1]=="ихтиёрӣ")opt=true;else role=RL[m[1]];l=l.replace(MK,"").trim()}return{label:l,opt,role}}
+const fmtLine=f=>f.label+(f.role?" ("+RB[f.role]+")":"")+(f.opt?" (ихтиёрӣ)":"");
 function svcEdit(key){
- const s=SVC[key]||{name:"",icon:"🛠️",price:"",fields:[{label:"Тафсилот",type:"text"}],active:true,acc:false};
+ const s=SVC[key]||{name:"",icon:"🛠️",price:"",unit_price:"",fields:[{label:"Тафсилот / Подробности",type:"text"}],active:true,acc:false};
  svImg=null;
- A.innerHTML=`<span class="back" onclick="svc()">← Бозгашт</span><h2>${key?"Таҳрири хидмат":"Хидмати нав"}</h2>
- <div style="display:flex;gap:12px;align-items:center"><div id="svpv">${ic(s,58)}</div><div style="flex:1"><label style="margin:0 0 4px">Расми хидмат</label><input type="file" accept="image/*" onchange="svPick(this)"></div></div>
- <label>Эмоҷӣ (агар расм набошад)</label><input id="svi" maxlength="4" value="${esc(s.icon)}">
- <label>Ном</label><input id="svn" maxlength="40" value="${esc(s.name)}">
- <label>Нарх "аз ... сомонӣ" (холӣ = мувофиқа)</label><input id="svp" type="number" min="0" value="${+s.price||""}">
- <label>Майдонҳои форма: ҳар сатр як майдон. Дар охир "(ихтиёрӣ)" нависед, агар пур кардан шарт набошад.</label><textarea id="svl" style="min-height:110px">${esc(s.fields.map(f=>f.label+(f.opt?" (ихтиёрӣ)":"")).join("\n"))}</textarea>
- <label class="chk"><input type="checkbox" id="sva" ${s.acc?"checked":""}>Барои ин хидмат аккаунти клиент лозим аст (огоҳии бан нишон дода мешавад)</label>
- <label class="chk"><input type="checkbox" id="svt" ${s.active?"checked":""}>Фаъол (клиентон мебинанд)</label>
- ${s.image?`<label class="chk"><input type="checkbox" id="svc2">Расмро нест кардан</label>`:""}
- <p class="err" id="err"></p><button class="btn" onclick="svcSave('${esc(key)}')">Нигоҳ доштан</button>`;
+ A.innerHTML=`<span class="back" onclick="svc()">${t("back")}</span><h2>${key?t("s_editT"):t("s_newT")}</h2>
+ <div style="display:flex;gap:12px;align-items:center"><div id="svpv">${ic(s,58)}</div><div style="flex:1"><label style="margin:0 0 4px">${t("s_photo")}</label><input type="file" accept="image/*" onchange="svPick(this)"></div></div>
+ <label>${t("s_emoji")}</label><input id="svi" maxlength="4" value="${esc(s.icon)}">
+ <label>${t("s_name")}</label><input id="svn" maxlength="40" value="${esc(s.name)}">
+ <label>${t("s_price")}</label><input id="svp" type="number" min="0" value="${+s.price||""}">
+ <label>${t("s_unit")}</label><input id="svu" type="number" min="0" value="${+s.unit_price||""}">
+ <label>${t("s_fields")}</label><textarea id="svl" style="min-height:120px">${esc(s.fields.map(fmtLine).join("\n"))}</textarea>
+ <label class="chk"><input type="checkbox" id="sva" ${s.acc?"checked":""}>${t("s_acc")}</label>
+ <label class="chk" style="margin-top:10px"><input type="checkbox" id="svt" ${s.active?"checked":""}>${t("s_act")}</label>
+ ${s.image?`<label class="chk" style="margin-top:10px"><input type="checkbox" id="svc2">${t("s_delimg")}</label>`:""}
+ <p class="err" id="err"></p><button class="btn" onclick="svcSave('${esc(key)}')">${t("save")}</button>`;
 }
 async function svPick(i){if(i.files[0]){svImg=await thumb(i.files[0]);g("svpv").innerHTML=ic({image:svImg},58)}}
 async function svcSave(key){
- const name=g("svn").value.trim();if(!name){g("err").textContent="Ном нависед";return}
+ const name=g("svn").value.trim();if(!name){g("err").textContent=t("nameNeed");return}
  const old=(SVC[key]||{fields:[]}).fields;
- const fields=g("svl").value.split("\n").map(x=>x.trim()).filter(Boolean).map(x=>{const opt=/\(ихтиёрӣ\)$/.test(x),label=x.replace(/\s*\(ихтиёрӣ\)$/,"").trim(),o=old.find(f=>f.label==label);return{label,opt,type:o?o.type:"text"}});
- try{await api("/api/services/save",{key,name,icon:g("svi").value.trim(),price:g("svp").value,fields,acc:g("sva").checked,active:g("svt").checked,image:svImg,clear_image:!!(g("svc2")&&g("svc2").checked)});
-  await loadSvc();svc()}catch(e){g("err").textContent="Хато шуд."}
+ const fields=g("svl").value.split("\n").map(x=>x.trim()).filter(Boolean).map(x=>{const p=parseLine(x),o=old.find(f=>f.label==p.label);return{label:p.label,opt:p.opt,role:p.role,type:p.role?"number":(o?o.type:"text")}});
+ try{await api("/api/services/save",{key,name,icon:g("svi").value.trim(),price:g("svp").value,unit_price:g("svu").value,fields,acc:g("sva").checked,active:g("svt").checked,image:svImg,clear_image:!!(g("svc2")&&g("svc2").checked)});
+  await loadSvc();svc()}catch(e){g("err").textContent=t("err")}
 }
 home();
 </script></body></html>
