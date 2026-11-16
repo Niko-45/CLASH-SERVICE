@@ -57,11 +57,13 @@ input.sw:checked::after{left:21px}
 <body><div id="app"></div>
 <script>
 const API="https://clash-service-production.up.railway.app"; // истиноди HTTPS-и бэкенд
+const DEBUG=true; // true = дар хато тафсилоти кӯтоҳ нишон медиҳад; баъди санҷиш false кунед
 const tg=Telegram.WebApp;tg.ready();tg.expand();
 try{tg.setHeaderColor("#10132A");tg.setBackgroundColor("#10132A")}catch(e){}
 const A=document.getElementById("app"),g=id=>document.getElementById(id);
 const hap=()=>{try{tg.HapticFeedback.impactOccurred("light")}catch(e){}};
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const errTxt=e=>(e&&e.message=="img"?t("imgBad"):t("errRetry")+(DEBUG&&e&&(e.msg||e.message)?" ["+String(e.msg||e.message).slice(0,160)+"]":""));
 const api=async(p,b={})=>{const r=await fetch(API+p,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...b,initData:tg.initData})});if(!r.ok){const e=new Error(r.status);e.msg=await r.text().catch(()=>"");throw e}return r.json()};
 
 /* ---------- забон ---------- */
@@ -91,7 +93,7 @@ tg:{load:"Бор шуда истодааст…",err:"Хато шуд.",errOpen:
  s_name:"Ном (барои ду забон: Тоҷикӣ / Русӣ)",s_price:"Нарх \"аз ... сомонӣ\" (холӣ = мувофиқа)",s_unit:"Нарх барои 1 воҳид (ҳисобкунак; холӣ = ҳисобкунак нест)",
  s_fields:"Майдонҳои форма: ҳар сатр як майдон. Нишонаҳо дар охир: (ихтиёрӣ); (аз) = сатҳи ҳозира; (то) = сатҳи дилхоҳ; (шумора) = шумора. Барои ду забон: Тоҷикӣ / Русӣ",
  s_acc:"Барои ин хидмат аккаунти клиент лозим аст (огоҳии бан нишон дода мешавад)",s_act:"Фаъол (клиентон мебинанд)",s_delimg:"Расмро нест кардан",s_payT:"Реквизитҳои пардохт (клиент баъди тасдиқи нарх мебинад)",s_payPh:"Масалан: Alif 1234 5678 …, ном",s_saved:"Нигоҳ дошта шуд ✓",
- now:"ҳозир",m:" дақ пеш",h:" соат пеш",d:" рӯз пеш",left:"боқӣ: ",timeUp:"вақт тамом шуд",mn:"дақ",busy:"Ҳоло қабули фармоиш баста аст. Баъдтар кӯшиш кунед.",queue:"Дар навбат:",limit:"Шумо аллакай фармоишҳои кушодаи зиёд доред. Аввал онҳо анҷом шаванд.",promoLbl:"Промокод (ихтиёрӣ)",promoBad:"Промокод нодуруст ё тамом шудааст.",rules:"📜 Қоидаҳо",rulesEmpty:"Қоидаҳо ҳоло нест.",workHrs:"Соатҳои корӣ:",disc:"Тахфиф",refT:"Дӯстонро даъват кунед",refTxt:"Дӯсти нав 10% тахфиф мегирад ва шумо ҳам 10% баъди аввалин фармоиши ӯ.",refCopy:"Нусха кардан",refShare:"Фиристодан",copied:"Нусха шуд ✓",tagP:"Теги бозингар",tagC:"Теги клан",repeat:"🔁 Такрор",search:"🔍 Ҷустуҷӯ: ном, #рақам",allowShare:"Иҷозат медиҳам, ки расми натиҷа бе ном дар канал нашр шавад",shareBtn:"📣 Ба канал фиристодан",shared:"Нашр шуд ✓",shareFail:"Нашр нашуд. Бот бояд админи канал бошад.",repSvc:"Аз рӯи хидмат",repTop:"Беҳтарин клиентон",export:"📤 Нусхаи база ба Telegram",exported:"Фиристода шуд ✓",s_busy:"Қабули фармоишро бастан",s_max:"Ҳадди фармоишҳои кушода барои як клиент",s_hours:"Соатҳои корӣ, масалан 09:00-22:00 (вақти Душанбе)",s_away:"Паёми худкор берун аз соатҳои корӣ (Тоҷикӣ / Русӣ)",s_chan:"Канал барои нашри натиҷаҳо (@ном; бот бояд админи канал бошад)",s_rules:"Қоидаҳо: матни тоҷикӣ, баъд сатри ---, баъд матни русӣ",promoT:"Промокодҳо",promoAdd:"Илова кардан",promoUses:"маротиба"},
+ now:"ҳозир",m:" дақ пеш",h:" соат пеш",d:" рӯз пеш",left:"боқӣ: ",timeUp:"вақт тамом шуд",mn:"дақ",imgBad:"Расм кушода нашуд. Расми дигар (JPG ё PNG) интихоб кунед.",busy:"Ҳоло қабули фармоиш баста аст. Баъдтар кӯшиш кунед.",queue:"Дар навбат:",limit:"Шумо аллакай фармоишҳои кушодаи зиёд доред. Аввал онҳо анҷом шаванд.",promoLbl:"Промокод (ихтиёрӣ)",promoBad:"Промокод нодуруст ё тамом шудааст.",rules:"📜 Қоидаҳо",rulesEmpty:"Қоидаҳо ҳоло нест.",workHrs:"Соатҳои корӣ:",disc:"Тахфиф",refT:"Дӯстонро даъват кунед",refTxt:"Дӯсти нав 10% тахфиф мегирад ва шумо ҳам 10% баъди аввалин фармоиши ӯ.",refCopy:"Нусха кардан",refShare:"Фиристодан",copied:"Нусха шуд ✓",tagP:"Теги бозингар",tagC:"Теги клан",repeat:"🔁 Такрор",search:"🔍 Ҷустуҷӯ: ном, #рақам",allowShare:"Иҷозат медиҳам, ки расми натиҷа бе ном дар канал нашр шавад",shareBtn:"📣 Ба канал фиристодан",shared:"Нашр шуд ✓",shareFail:"Нашр нашуд. Бот бояд админи канал бошад.",repSvc:"Аз рӯи хидмат",repTop:"Беҳтарин клиентон",export:"📤 Нусхаи база ба Telegram",exported:"Фиристода шуд ✓",s_busy:"Қабули фармоишро бастан",s_max:"Ҳадди фармоишҳои кушода барои як клиент",s_hours:"Соатҳои корӣ, масалан 09:00-22:00 (вақти Душанбе)",s_away:"Паёми худкор берун аз соатҳои корӣ (Тоҷикӣ / Русӣ)",s_chan:"Канал барои нашри натиҷаҳо (@ном; бот бояд админи канал бошад)",s_rules:"Қоидаҳо: матни тоҷикӣ, баъд сатри ---, баъд матни русӣ",promoT:"Промокодҳо",promoAdd:"Илова кардан",promoUses:"маротиба"},
 ru:{load:"Загрузка…",err:"Ошибка.",errOpen:"Ошибка. Откройте приложение заново.",errRetry:"Ошибка. Попробуйте ещё раз.",
  back:"← Назад",save:"Сохранить",send:"Отправить",som:"сомони",hrs:"ч",
  n_o:"Заказы",n_a:"Новости",n_f:"Финансы",n_s:"Услуги",n_p:"Профиль",
@@ -115,7 +117,7 @@ ru:{load:"Загрузка…",err:"Ошибка.",errOpen:"Ошибка. Отк
  s_name:"Название (для двух языков: Тоҷикӣ / Русский)",s_price:"Цена «от … сомони» (пусто = договорная)",s_unit:"Цена за 1 единицу (для калькулятора; пусто = без калькулятора)",
  s_fields:"Поля формы: каждое с новой строки. Пометки в конце: (ихтиёрӣ) = необязательно; (аз) = текущий уровень; (то) = нужный уровень; (шумора) = количество. Для двух языков: Тоҷикӣ / Русский",
  s_acc:"Для этой услуги нужен аккаунт клиента (показывать предупреждение о бане)",s_act:"Включена (клиенты видят)",s_delimg:"Удалить фото",s_payT:"Реквизиты для оплаты (клиент увидит после подтверждения цены)",s_payPh:"Например: Alif 1234 5678 …, имя",s_saved:"Сохранено ✓",
- now:"только что",m:" мин назад",h:" ч назад",d:" дн назад",left:"осталось: ",timeUp:"время вышло",mn:"мин",busy:"Приём заказов сейчас закрыт. Попробуйте позже.",queue:"В очереди:",limit:"У вас уже много открытых заказов. Дождитесь их завершения.",promoLbl:"Промокод (необяз.)",promoBad:"Промокод неверный или закончился.",rules:"📜 Правила",rulesEmpty:"Правил пока нет.",workHrs:"Рабочие часы:",disc:"Скидка",refT:"Пригласите друзей",refTxt:"Новый друг получает скидку 10%, и вы тоже 10% после его первого заказа.",refCopy:"Копировать",refShare:"Отправить",copied:"Скопировано ✓",tagP:"Тег игрока",tagC:"Тег клана",repeat:"🔁 Повторить",search:"🔍 Поиск: имя, #номер",allowShare:"Разрешаю опубликовать фото результата без имени в канале",shareBtn:"📣 Отправить в канал",shared:"Опубликовано ✓",shareFail:"Не опубликовано. Бот должен быть админом канала.",repSvc:"По услугам",repTop:"Лучшие клиенты",export:"📤 Резервная копия в Telegram",exported:"Отправлено ✓",s_busy:"Закрыть приём заказов",s_max:"Лимит открытых заказов на клиента",s_hours:"Рабочие часы, например 09:00-22:00 (время Душанбе)",s_away:"Автоответ вне рабочих часов (Тоҷикӣ / Русский)",s_chan:"Канал для публикации результатов (@имя; бот должен быть админом)",s_rules:"Правила: текст на тоҷикском, затем строка ---, затем текст на русском",promoT:"Промокоды",promoAdd:"Добавить",promoUses:"раз"}
+ now:"только что",m:" мин назад",h:" ч назад",d:" дн назад",left:"осталось: ",timeUp:"время вышло",mn:"мин",imgBad:"Не удалось открыть фото. Выберите другое (JPG или PNG).",busy:"Приём заказов сейчас закрыт. Попробуйте позже.",queue:"В очереди:",limit:"У вас уже много открытых заказов. Дождитесь их завершения.",promoLbl:"Промокод (необяз.)",promoBad:"Промокод неверный или закончился.",rules:"📜 Правила",rulesEmpty:"Правил пока нет.",workHrs:"Рабочие часы:",disc:"Скидка",refT:"Пригласите друзей",refTxt:"Новый друг получает скидку 10%, и вы тоже 10% после его первого заказа.",refCopy:"Копировать",refShare:"Отправить",copied:"Скопировано ✓",tagP:"Тег игрока",tagC:"Тег клана",repeat:"🔁 Повторить",search:"🔍 Поиск: имя, #номер",allowShare:"Разрешаю опубликовать фото результата без имени в канале",shareBtn:"📣 Отправить в канал",shared:"Опубликовано ✓",shareFail:"Не опубликовано. Бот должен быть админом канала.",repSvc:"По услугам",repTop:"Лучшие клиенты",export:"📤 Резервная копия в Telegram",exported:"Отправлено ✓",s_busy:"Закрыть приём заказов",s_max:"Лимит открытых заказов на клиента",s_hours:"Рабочие часы, например 09:00-22:00 (время Душанбе)",s_away:"Автоответ вне рабочих часов (Тоҷикӣ / Русский)",s_chan:"Канал для публикации результатов (@имя; бот должен быть админом)",s_rules:"Правила: текст на тоҷикском, затем строка ---, затем текст на русском",promoT:"Промокоды",promoAdd:"Добавить",promoUses:"раз"}
 };
 const WD={tg:["Яш","Дш","Сш","Чш","Пш","Ҷм","Шб"],ru:["Вс","Пн","Вт","Ср","Чт","Пт","Сб"]};
 const t=k=>T[lang][k]??T.tg[k]??k;
@@ -125,7 +127,7 @@ function setLang(l){lang=l;try{localStorage.setItem("lang",l)}catch(e){}api("/ap
 const LEG={th:"Town Hall",cur:"Сатҳи ҳозира / Текущий уровень",to:"Сатҳи дилхоҳ / Нужный уровень",tag:"Теги клан / Тег клана",what:"Чӣ / Что",times:"Чанд маротиба / Сколько раз",n:"Шумораи ҳамла / Кол-во атак",hall:"Capital Hall",title:"Чӣ мехоҳед / Что нужно",budget:"Буҷет / Бюджет"};
 const COL={new:"#FF8A8A",priced:"#F5B83D",unpaid:"#F5B83D",checking:"#D9A8FF",working:"#9DBBFF",done:"#4CC38A",rejected:"#9AA0C0",cancelled:"#9AA0C0"};
 const tag=s=>`<span class="tag" style="color:${COL[s]||COL.new}">${t("st_"+(COL[s]?s:"new"))}</span>`;
-let me=null,orders=[],SVC={},SET={},poll=null,rate=0,flt="all",more=false,svImg=null,avImg=null,lastN=-1,qs="",chatImgs={},attImg=null;
+let me=null,orders=[],SVC={},SET={},poll=null,rate=0,flt="all",more=false,svImg=null,avImg=null,lastN=-1,qs="",chatImgs={},attImg=null,svcAt=0,sig="";
 const sv=k=>SVC[k]||{name:k,icon:"🛠️",fields:[]};
 const ic=(s,z=40)=>`<div class="ic" style="width:${z}px;height:${z}px;font-size:${Math.round(z*.55)}px">${s.image?`<img src="${esc(s.image)}" alt="">`:esc(s.icon||"🛠️")}</div>`;
 const ago=iso=>{const m=Math.floor((Date.now()-Date.parse(iso))/6e4);return m<1?t("now"):m<60?m+t("m"):m<1440?Math.floor(m/60)+t("h"):Math.floor(m/1440)+t("d")};
@@ -146,12 +148,13 @@ const nav=k=>{
   L.map(([i,f,n])=>`<span class="${k==i?"on":""}" onclick="hap();${f}()">${t("n_"+i)}${n?`<i>${n}</i>`:""}</span>`).join("")+"</div>"};
 const wait=k=>{clearInterval(poll);A.innerHTML=nav(k)+`<p class="mut">${t("load")}</p>`};
 const fail=k=>{A.innerHTML=nav(k)+`<p>${t("err")}</p>`};
-const run=async(p,b)=>{try{await api(p,b);home()}catch(e){tg.showAlert(t("errRetry"))}};
-const loadSvc=async()=>{const s=await api("/api/services");SVC={};s.items.forEach(x=>SVC[x.key]=x)};
+const run=async(p,b)=>{try{await api(p,b);home()}catch(e){tg.showAlert(errTxt(e))}};
+const loadSvc=async()=>{const s=await api("/api/services");SVC={};s.items.forEach(x=>SVC[x.key]=x);svcAt=Date.now()};
+const mkSig=()=>orders.map(x=>[x.id,x.status,x.price,x.unread,x.started_at,x.reviewed].join()).join("|")+"|"+SET.busy+SET.queue;
 
 /* ---------- расмҳо ---------- */
-const shrink=f=>new Promise((res,rej)=>{const i=new Image();i.onload=()=>{const k=Math.min(1,1280/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=i.width*k;c.height=i.height*k;c.getContext("2d").drawImage(i,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",.75))};i.onerror=rej;i.src=URL.createObjectURL(f)});
-const thumb=f=>new Promise((res,rej)=>{const i=new Image();i.onload=()=>{const c=document.createElement("canvas"),S=128;c.width=c.height=S;const x=c.getContext("2d");x.fillStyle="#262B55";x.fillRect(0,0,S,S);const m=Math.min(i.width,i.height);x.drawImage(i,(i.width-m)/2,(i.height-m)/2,m,m,0,0,S,S);res(c.toDataURL("image/jpeg",.8))};i.onerror=rej;i.src=URL.createObjectURL(f)});
+const shrink=f=>new Promise((res,rej)=>{const i=new Image();i.onload=()=>{const k=Math.min(1,1280/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=i.width*k;c.height=i.height*k;c.getContext("2d").drawImage(i,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",.75))};i.onerror=()=>rej(new Error("img"));i.src=URL.createObjectURL(f)});
+const thumb=f=>new Promise((res,rej)=>{const i=new Image();i.onload=()=>{const c=document.createElement("canvas"),S=128;c.width=c.height=S;const x=c.getContext("2d");x.fillStyle="#262B55";x.fillRect(0,0,S,S);const m=Math.min(i.width,i.height);x.drawImage(i,(i.width-m)/2,(i.height-m)/2,m,m,0,0,S,S);res(c.toDataURL("image/jpeg",.8))};i.onerror=()=>rej(new Error("img"));i.src=URL.createObjectURL(f)});
 function showPic(box,src){const im=new Image();im.src=src;im.className="pic";im.onclick=()=>zoom(src);box.appendChild(im)}
 function zoom(src){const d=document.createElement("div");d.style.cssText="position:fixed;inset:0;background:#000;z-index:9;display:flex;align-items:center;justify-content:center";
  const im=new Image();im.src=src;im.style.cssText="max-width:100%;max-height:100%";d.appendChild(im);d.onclick=()=>d.remove();document.body.appendChild(d)}
@@ -174,8 +177,8 @@ function card(o){
 async function home(){
  clearInterval(poll);
  A.innerHTML=`<p class="mut" style="padding:20px 0">${t("load")}</p>`;
- try{me=me||await api("/api/me",{lang});const [o,st]=await Promise.all([api("/api/orders"),api("/api/settings"),loadSvc()]);orders=o.orders;SET=st}
- catch(e){A.innerHTML=`<p style="padding:20px 0">${t("errOpen")}</p>`;return}
+ try{const [m,o,st]=await Promise.all([me?null:api("/api/me",{lang}),api("/api/orders"),api("/api/settings"),Object.keys(SVC).length&&Date.now()-svcAt<12e4?null:loadSvc()]);if(m)me=m;orders=o.orders;SET=st;sig=mkSig()}
+ catch(e){A.innerHTML=`<p style="padding:20px 0">${t("errOpen")}</p>`+(DEBUG?`<p class="mut">${esc(String(e.msg||e.message).slice(0,200))}</p>`:"");return}
  listView();
 }
 function lstHTML(){
@@ -226,7 +229,7 @@ async function send(k){
   await api("/api/orders/create",{service:k,data,note:g("note").value.trim(),promo:g("promo").value.trim(),image:f?await shrink(f):null});
   try{tg.HapticFeedback.notificationOccurred("success")}catch(e){}
   home()}
- catch(e){const m=e.msg||"";g("err").textContent=m.includes("busy")?t("busy"):m.includes("limit")?t("limit"):m.includes("promo")?t("promoBad"):t("errRetry");g("go").disabled=false}
+ catch(e){const m=e.msg||"";g("err").textContent=m.includes("busy")?t("busy"):m.includes("limit")?t("limit"):m.includes("promo")?t("promoBad"):errTxt(e);g("go").disabled=false}
 }
 
 /* ---------- тафсилоти фармоиш ---------- */
@@ -251,7 +254,7 @@ function detail(id){
   if(["done","cancelled","rejected"].includes(st))act+=`<button class="btn g" onclick="repeat(${+o.id})">${t("repeat")}</button>`;
  }
  if(ad&&st=="done"&&o.allow_share&&SET.channel)act+=o.shared?`<p class="mut">${t("shared")}</p>`:`<button class="btn g" onclick="shareCh(${+o.id})">${t("shareBtn")}</button>`;
- A.innerHTML=`<span class="back" onclick="home()">${t("back")}</span><div style="display:flex;gap:10px;align-items:center;margin:4px 0 12px">${ic(s,48)}<div><h2 style="margin:0">${esc(loc(s.name))}</h2><div class="mut">#${+o.id} · ${ago(o.created_at)}</div></div></div><div class="row"><span class="mut">${t("status")}</span>${tag(st)}</div>`+
+ A.innerHTML=`<span class="back" onclick="home()">${t("back")}</span><span id="dtl" data-id="${+o.id}" style="display:none"></span><div style="display:flex;gap:10px;align-items:center;margin:4px 0 12px">${ic(s,48)}<div><h2 style="margin:0">${esc(loc(s.name))}</h2><div class="mut">#${+o.id} · ${ago(o.created_at)}</div></div></div><div class="row"><span class="mut">${t("status")}</span>${tag(st)}</div>`+
   (ad?`<div class="row"><span class="mut">${t("client")}</span><b>@${esc(o.users?.username||o.users?.name||o.user_id)}</b></div>`:"")+rows+
   (o.note?`<div ${cd} style="cursor:default;margin-top:10px">${esc(o.note)}</div>`:"")+
   (o.cancel_reason?`<div ${cd}>${t("reasonLbl")} ${esc(o.cancel_reason)}</div>`:"")+
@@ -280,15 +283,15 @@ function repeat(id){const o=orders.find(x=>x.id==id);if(!SVC[o.service]||!SVC[o.
 function setPrice(id){const v=+g("pr").value;if(v>0)run("/api/orders/price",{id,price:v,hours:+g("hr").value||0})}
 async function payRc(id){
  const f=g("rs").files[0];if(!f){g("err").textContent=t("receiptNeed");return}
- try{await api("/api/orders/pay",{id,image:await shrink(f)});home()}catch(e){g("err").textContent=t("errRetry")}
+ try{await api("/api/orders/pay",{id,image:await shrink(f)});home()}catch(e){g("err").textContent=errTxt(e)}
 }
 async function finish(id){
  const f=g("rs").files[0];
- try{if(f)await api("/api/orders/result",{id,image:await shrink(f)});await api("/api/orders/finish",{id});home()}catch(e){tg.showAlert(t("errRetry"))}
+ try{if(f)await api("/api/orders/result",{id,image:await shrink(f)});await api("/api/orders/finish",{id});home()}catch(e){tg.showAlert(errTxt(e))}
 }
 async function addRes(id){
  const f=g("rs").files[0];if(!f)return;
- try{await api("/api/orders/result",{id,image:await shrink(f)});g("rs").value="";loadFiles(id,"result")}catch(e){tg.showAlert(t("errRetry"))}
+ try{await api("/api/orders/result",{id,image:await shrink(f)});g("rs").value="";loadFiles(id,"result")}catch(e){tg.showAlert(errTxt(e))}
 }
 function cancel(id){tg.showConfirm(t("cancelAsk"),ok=>{if(ok)run("/api/orders/cancel",{id,reason:g("cr")?g("cr").value.trim():""})})}
 function star(i){rate=i;g("stars").innerHTML=[1,2,3,4,5].map(n=>`<span onclick="star(${n})">${n<=i?"★":"☆"}</span>`).join("")}
@@ -306,7 +309,7 @@ async function chat(id){
   `<div id="ap" class="mut"></div><div class="send"><label class="sb" style="display:flex;align-items:center;justify-content:center;background:var(--card2);margin:0">📎<input id="mf" type="file" accept="image/*" style="display:none" onchange="attPick(this)"></label><input id="mt" placeholder="${t("msgPh")}" onkeydown="if(event.key=='Enter')say(${id})"><button class="sb" onclick="say(${id})">➤</button></div>`;
  await loadChat(id,true);poll=setInterval(()=>loadChat(id,false),5000);
 }
-async function attPick(i){if(i.files[0]){attImg=await shrink(i.files[0]);g("ap").textContent="📎 ✓"}}
+async function attPick(i){if(i.files[0]){try{attImg=await shrink(i.files[0]);g("ap").textContent="📎 ✓"}catch(e){attImg=null;tg.showAlert(errTxt(e))}}}
 async function loadChat(id,first){
  try{const m=(await api("/api/chat/list",{id})).messages,box=g("msgs");
   if(!box||(!first&&m.length==lastN))return;lastN=m.length;
@@ -320,7 +323,7 @@ async function loadImg(id,mid){
  try{const r=await api("/api/chat/image",{id,mid});if(r.image){chatImgs[mid]=r.image;put(r.image)}}catch(e){}
 }
 async function say(id){const i=g("mt"),v=i.value.trim();if(!v&&!attImg)return;i.value="";const im=attImg;attImg=null;g("ap").textContent="";const mf=g("mf");if(mf)mf.value="";
- try{await api("/api/chat/send",{id,text:v,image:im});await loadChat(id,true)}catch(e){tg.showAlert(t("err"))}}
+ try{await api("/api/chat/send",{id,text:v,image:im});await loadChat(id,true)}catch(e){tg.showAlert(errTxt(e))}}
 const quick=(id,i)=>{g("mt").value=Q()[i];say(id)};
 
 /* ---------- эълонҳо ---------- */
@@ -424,5 +427,23 @@ async function svcSave(key){
  try{await api("/api/services/save",{key,name,icon:g("svi").value.trim(),price:g("svp").value,unit_price:g("svu").value,fields,acc:g("sva").checked,active:g("svt").checked,image:svImg,clear_image:!!(g("svc2")&&g("svc2").checked)});
   await loadSvc();svc()}catch(e){g("err").textContent=t("err")}
 }
+/* ---------- навсозии худкор: рӯйхат ва тафсилот бе пахши тугма нав мешаванд ---------- */
+async function refresh(){
+ if(document.hidden||!me)return;
+ const onList=!!g("lst"),dt=g("dtl");
+ if(!onList&&!dt)return;
+ try{
+  const [o,st]=await Promise.all([api("/api/orders"),api("/api/settings")]);
+  const old=dt?orders.find(x=>x.id==dt.dataset.id):null;
+  const ns=o.orders.map(x=>[x.id,x.status,x.price,x.unread,x.started_at,x.reviewed].join()).join("|")+"|"+st.busy+st.queue;
+  if(ns==sig)return;
+  sig=ns;orders=o.orders;SET=st;
+  if(onList){const a=document.activeElement;if(a&&a.id=="q")g("lst").innerHTML=lstHTML();else listView()}
+  else{const nw=orders.find(x=>x.id==dt.dataset.id);
+   if(nw&&(!old||old.status!=nw.status||old.price!=nw.price||old.hours!=nw.hours||old.reviewed!=nw.reviewed))detail(+dt.dataset.id)}
+ }catch(e){}
+}
+setInterval(refresh,10000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)refresh()});
 home();
 </script></body></html>
