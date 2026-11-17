@@ -6,7 +6,7 @@ from urllib.parse import parse_qsl
 import aiohttp
 from aiohttp import web
 from aiogram import Bot, Dispatcher
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command
 from aiogram.types import (Message, WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton,
                            MenuButtonWebApp, BufferedInputFile)
 
@@ -26,7 +26,7 @@ if SB_KEY.startswith("eyJ"):
     HDR["Authorization"] = "Bearer " + SB_KEY
 IMG = re.compile(r"data:image/(jpeg|png);base64,[A-Za-z0-9+/=]+")
 OPEN = "(new,priced,unpaid,checking,working)"
-SETTING_KEYS = ("pay_info", "rules", "busy", "max_open", "hours", "away", "channel")
+SETTING_KEYS = ("pay_info", "rules", "busy", "max_open", "hours", "away", "channel", "storage_chat")
 AWAY = ("Ҳоло берун аз соатҳои кориям. Дар соатҳои корӣ ҷавоб медиҳам. / "
         "Сейчас нерабочее время. Отвечу в рабочие часы.")
 
@@ -227,6 +227,81 @@ async def get_services():
     return v if v is not None else cache_set("svc", await sb("GET", "services", {"order": "sort.asc,key.asc"}))
 
 
+STORE_KINDS = {"shot": "Скриншот", "receipt": "Чек", "result": "Натиҷа", "review": "Шарҳ", "chat": "Чат"}
+IMGCACHE = {}
+
+
+async def store_chat():
+    v = ((await get_settings()).get("storage_chat") or "").strip()
+    return int(v) if re.fullmatch(r"-?\d+", v) else None
+
+
+async def topic_for(kind):
+    st = await get_settings()
+    v = (st.get("tp_" + kind) or "").strip()
+    if v == "0":
+        return None  # гурӯҳ бе мавзӯъ (ё канал): танҳо ҳештег
+    if v.isdigit():
+        return int(v)
+    tid = 0
+    try:
+        tid = (await bot.create_forum_topic(await store_chat(), STORE_KINDS[kind])).message_thread_id
+    except Exception as e:
+        print("create_forum_topic:", e)
+    await sb("POST", "settings", {"on_conflict": "key"}, [{"key": "tp_" + kind, "value": str(tid)}])
+    _c.clear()
+    return tid or None
+
+
+async def store_image(kind, oid, data_url, extra=""):
+    """Расмро ба гурӯҳи нигоҳдорӣ мефиристад ва file_id-ро бармегардонад. Агар кор накунад: None (расм дар база мемонад)."""
+    cid = await store_chat()
+    if not cid:
+        return None
+    try:
+        raw = base64.b64decode(data_url.split(",", 1)[1])
+        m = await bot.send_photo(cid, BufferedInputFile(raw, f"{kind}{oid}.jpg"),
+                                 caption=f"#{STORE_KINDS[kind]} #заказ{oid} {extra}".strip()[:900],
+                                 message_thread_id=await topic_for(kind))
+        return m.photo[-1].file_id
+    except Exception as e:
+        print("store_image:", e)
+        return None
+
+
+async def store_text(kind, text):
+    cid = await store_chat()
+    if not cid:
+        return
+    try:
+        await bot.send_message(cid, text[:3500], message_thread_id=await topic_for(kind))
+    except Exception as e:
+        print("store_text:", e)
+
+
+async def fetch_image(file_id):
+    if file_id in IMGCACHE:
+        return IMGCACHE[file_id]
+    f = await bot.get_file(file_id)
+    buf = io.BytesIO()
+    await bot.download_file(f.file_path, destination=buf)
+    url = "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
+    if len(IMGCACHE) >= 40:
+        IMGCACHE.pop(next(iter(IMGCACHE)))
+    IMGCACHE[file_id] = url
+    return url
+
+
+async def img_of(row, col="data"):
+    if row.get("file_id"):
+        try:
+            return await fetch_image(row["file_id"])
+        except Exception as e:
+            print("fetch_image:", e)
+            return None
+    return row.get(col)
+
+
 routes = web.RouteTableDef()
 OK = lambda: web.json_response({"ok": True})
 
@@ -318,7 +393,8 @@ async def create(req):
     if promo:
         await sb("PATCH", "promos", {"code": f"eq.{code}"}, {"uses_left": promo["uses_left"] - 1})
     if img:
-        await sb("POST", "order_images", None, {"order_id": o["id"], "data": img})
+        fid = await store_image("shot", o["id"], img, "@" + (u.get("username") or "-"))
+        await sb("POST", "order_images", None, {"order_id": o["id"], "data": None if fid else img, "file_id": fid})
     await tellk(ADMIN_ID, "new", id=o["id"], name=nm(sv["name"], await lang_of(ADMIN_ID)),
                 user=u.get("username", "-"))
     return OK()
@@ -329,7 +405,7 @@ async def order_image(req):
     b, u, adm = await ctx(req)
     o = await own_order(b, u["id"], adm)
     rows = await sb("GET", "order_images", {"order_id": f"eq.{o['id']}"})
-    return web.json_response({"image": rows[0]["data"] if rows else None})
+    return web.json_response({"image": await img_of(rows[0]) if rows else None})
 
 
 @routes.post("/api/orders/price")
@@ -369,7 +445,9 @@ async def pay(req):
     img = b.get("image")
     if o["status"] != "unpaid" or not ok_img(img, 3_000_000):
         raise web.HTTPBadRequest()
-    await sb("POST", "order_files", None, {"order_id": o["id"], "kind": "receipt", "data": img})
+    fid = await store_image("receipt", o["id"], img, "@" + (u.get("username") or "-"))
+    await sb("POST", "order_files", None, {"order_id": o["id"], "kind": "receipt",
+                                           "data": None if fid else img, "file_id": fid})
     await sb("PATCH", "orders", {"id": f"eq.{o['id']}"}, {"status": "checking"})
     await tellk(ADMIN_ID, "receipt", id=o["id"])
     return OK()
@@ -400,7 +478,8 @@ async def order_files(req):
     kind = "result" if b.get("kind") == "result" else "receipt"
     rows = await sb("GET", "order_files", {"order_id": f"eq.{o['id']}", "kind": f"eq.{kind}",
                                            "order": "id.desc", "limit": "5"})
-    return web.json_response({"files": [r["data"] for r in rows]})
+    imgs = await asyncio.gather(*[img_of(r) for r in rows])
+    return web.json_response({"files": [x for x in imgs if x]})
 
 
 @routes.post("/api/orders/result")
@@ -411,7 +490,9 @@ async def result(req):
     o = await own_order(b, u["id"], True)
     if not ok_img(b.get("image"), 3_000_000):
         raise web.HTTPBadRequest()
-    await sb("POST", "order_files", None, {"order_id": o["id"], "kind": "result", "data": b["image"]})
+    fid = await store_image("result", o["id"], b["image"])
+    await sb("POST", "order_files", None, {"order_id": o["id"], "kind": "result",
+                                           "data": None if fid else b["image"], "file_id": fid})
     return OK()
 
 
@@ -472,7 +553,7 @@ async def share(req):
     if rv:
         cap += f"\n⭐ {rv[0]['rating']}/5" + (f"\n«{rv[0]['text']}»" if rv[0]["text"] else "")
     try:
-        img = base64.b64decode(f[0]["data"].split(",", 1)[1])
+        img = base64.b64decode((await img_of(f[0])).split(",", 1)[1])
         await bot.send_photo(ch, BufferedInputFile(img, "r.jpg"), caption=cap[:1000])
     except Exception:
         raise web.HTTPBadGateway(text="channel")
@@ -499,8 +580,8 @@ async def chat_list(req):
 async def chat_image(req):
     b, u, adm = await ctx(req)
     o = await own_order(b, u["id"], adm)
-    r = await sb("GET", "messages", {"select": "image", "id": f"eq.{int(b['mid'])}", "order_id": f"eq.{o['id']}"})
-    return web.json_response({"image": r[0]["image"] if r else None})
+    r = await sb("GET", "messages", {"select": "image,file_id", "id": f"eq.{int(b['mid'])}", "order_id": f"eq.{o['id']}"})
+    return web.json_response({"image": await img_of(r[0], "image") if r else None})
 
 
 @routes.post("/api/chat/send")
@@ -513,8 +594,9 @@ async def chat_send(req):
         raise web.HTTPBadRequest()
     if not text and not img:
         raise web.HTTPBadRequest()
+    fid = await store_image("chat", o["id"], img, "@" + (u.get("username") or "-")) if img else None
     await sb("POST", "messages", None, {"order_id": o["id"], "sender_id": u["id"], "text": text,
-                                        "image": img, "has_img": bool(img)})
+                                        "image": None if fid else img, "file_id": fid, "has_img": bool(img)})
     await tellk(o["user_id"] if adm else ADMIN_ID, "chat", id=o["id"], text=text[:200] or "📷")
     if not adm:
         st = await get_settings()
@@ -642,8 +724,12 @@ async def settings_save(req):
         raise web.HTTPForbidden()
     vals = b.get("values") or {}
     rows = [{"key": k, "value": str(vals[k]).strip()[:3000]} for k in SETTING_KEYS if k in vals]
+    reset = "storage_chat" in vals and str(vals["storage_chat"]).strip() != (await get_settings()).get("storage_chat", "")
     if rows:
         await sb("POST", "settings", {"on_conflict": "key"}, rows)
+        if reset:
+            await sb("POST", "settings", {"on_conflict": "key"},
+                     [{"key": "tp_" + k, "value": ""} for k in STORE_KINDS])
         _c.clear()
     return OK()
 
@@ -690,6 +776,7 @@ async def review_create(req):
     await sb("POST", "reviews", None, {"order_id": o["id"], "user_id": u["id"], "rating": rating, "text": text})
     if b.get("allow_share"):
         await sb("PATCH", "orders", {"id": f"eq.{o['id']}"}, {"allow_share": True})
+    await store_text("review", f"⭐ {rating}/5 · #заказ{o['id']} · @{u.get('username') or '-'}\n{text}")
     await tellk(ADMIN_ID, "review", id=o["id"], rating=rating, text=text)
     return OK()
 
@@ -783,6 +870,48 @@ async def send_export(chat_id):
         await bot.send_document(chat_id, BufferedInputFile(buf.getvalue().encode("utf-8-sig"), fname))
 
 
+@routes.post("/api/storage/test")
+async def storage_test(req):
+    b, u, adm = await ctx(req)
+    if not adm:
+        raise web.HTTPForbidden()
+    cid = await store_chat()
+    if not cid:
+        raise web.HTTPBadRequest(text="no id")
+    try:
+        await bot.send_message(cid, "✅ Нигоҳдорӣ кор мекунад / Хранилище работает")
+        topics = [await topic_for(k) for k in STORE_KINDS]
+    except Exception as e:
+        raise web.HTTPBadGateway(text=str(e)[:200])
+    return web.json_response({"ok": True, "forum": any(topics)})
+
+
+@routes.post("/api/migrate")
+async def migrate(req):
+    """Расмҳои кӯҳнаи базаро ба Telegram мебарад (камтар аз 20 паём дар як дақиқа, ки Telegram иҷозат медиҳад)."""
+    b, u, adm = await ctx(req)
+    if not adm:
+        raise web.HTTPForbidden()
+    if not await store_chat():
+        raise web.HTTPBadRequest(text="no storage")
+    specs = [("order_images", "data", "order_id", "order_id,data", "shot"),
+             ("order_files", "data", "id", "id,order_id,kind,data", None),
+             ("messages", "image", "id", "id,order_id,image", "chat")]
+    moved = 0
+    for table, col, pk, sel, kind in specs:
+        rows = await sb("GET", table, {"select": sel, "file_id": "is.null", col: "not.is.null", "limit": "3"})
+        for r in rows:
+            fid = await store_image(kind or r["kind"], r.get("order_id"), r[col])
+            if fid:
+                await sb("PATCH", table, {pk: f"eq.{r[pk]}"}, {"file_id": fid, col: None})
+                moved += 1
+            await asyncio.sleep(3.2)
+    left = 0
+    for table, col, pk, sel, kind in specs:
+        left += len(await sb("GET", table, {"select": pk, "file_id": "is.null", col: "not.is.null", "limit": "1000"}))
+    return web.json_response({"moved": moved, "left": left})
+
+
 @routes.post("/api/export")
 async def export(req):
     b, u, adm = await ctx(req)
@@ -847,6 +976,16 @@ async def start(m: Message):
         InlineKeyboardButton(text="Кушодани барнома / Открыть", web_app=WebAppInfo(url=WEBAPP_URL))]])
     await m.answer("Салом! Барои фармоиш тугмаро пахш кунед.\nПривет! Нажмите кнопку, чтобы сделать заказ.",
                    reply_markup=kb)
+
+
+@dp.message(Command("id"))
+async def cmd_id(m: Message):
+    await m.reply(f"ID: {m.chat.id}")
+
+
+@dp.channel_post(Command("id"))
+async def cmd_id_channel(m: Message):
+    await bot.send_message(m.chat.id, f"ID: {m.chat.id}")
 
 
 async def main():
