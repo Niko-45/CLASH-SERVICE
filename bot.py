@@ -8,7 +8,7 @@ from aiohttp import web
 from aiogram import Bot, Dispatcher
 from aiogram.filters import CommandStart, Command
 from aiogram.types import (Message, WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton,
-                           MenuButtonWebApp, BufferedInputFile)
+                           MenuButtonWebApp, BufferedInputFile, InputMediaPhoto)
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 ADMIN_ID = int(os.environ["ADMIN_CHAT_ID"])
@@ -227,7 +227,7 @@ async def get_services():
     return v if v is not None else cache_set("svc", await sb("GET", "services", {"order": "sort.asc,key.asc"}))
 
 
-STORE_KINDS = {"shot": "Скриншот", "receipt": "Чек", "result": "Натиҷа", "review": "Шарҳ", "chat": "Чат"}
+STORE_KINDS = {"result": "Натиҷа", "receipt": "Чек"}
 IMGCACHE = {}
 
 
@@ -253,30 +253,94 @@ async def topic_for(kind):
     return tid or None
 
 
-async def store_image(kind, oid, data_url, extra=""):
-    """Расмро ба гурӯҳи нигоҳдорӣ мефиристад ва file_id-ро бармегардонад. Агар кор накунад: None (расм дар база мемонад)."""
+def media_src(row, col="data"):
+    if row.get("file_id"):
+        return row["file_id"]
+    return BufferedInputFile(base64.b64decode(row[col].split(",", 1)[1]), "p.jpg")
+
+
+async def archive_order(oid):
+    """Фармоиши муваффақ: до/после + шарҳ дар як паём, чек алоҳида. Баъд расмҳо аз база тоза мешаванд."""
     cid = await store_chat()
     if not cid:
-        return None
+        return False
     try:
-        raw = base64.b64decode(data_url.split(",", 1)[1])
-        m = await bot.send_photo(cid, BufferedInputFile(raw, f"{kind}{oid}.jpg"),
-                                 caption=f"#{STORE_KINDS[kind]} #заказ{oid} {extra}".strip()[:900],
-                                 message_thread_id=await topic_for(kind))
-        return m.photo[-1].file_id
+        rows = await sb("GET", "orders", {"id": f"eq.{oid}", "select": "*,users(name,username)"})
+        if not rows or rows[0]["status"] != "done" or rows[0].get("archived"):
+            return False
+        o = rows[0]
+        rv, before, files = await asyncio.gather(
+            sb("GET", "reviews", {"order_id": f"eq.{oid}"}),
+            sb("GET", "order_images", {"order_id": f"eq.{oid}"}),
+            sb("GET", "order_files", {"order_id": f"eq.{oid}", "order": "id.asc"}))
+        after = [f for f in files if f["kind"] == "result"][:8]
+        receipts = [f for f in files if f["kind"] == "receipt"]
+        sv = next((x for x in await get_services() if x["key"] == o["service"]), None)
+        usr = o.get("users") or {}
+        who = "@" + str(usr.get("username") or usr.get("name") or "-")
+        cap = f"✅ {sv['name'] if sv else o['service']}\n#заказ{oid} · {who}"
+        if o.get("price"):
+            cap += f" · {o['price']} сомонӣ"
+        lbl, k = [], 1
+        if before:
+            lbl.append("До: 1")
+            k = 2
+        if after:
+            lbl.append(f"После: {k}" + (f"–{k + len(after) - 1}" if len(after) > 1 else ""))
+        if lbl:
+            cap += "\n📷 " + " · ".join(lbl)
+        if rv:
+            cap += f"\n⭐ {rv[0]['rating']}/5" + (f" «{rv[0]['text']}»" if rv[0]["text"] else "")
+        cap = cap[:1000]
+        items = [("order_images", "order_id", r) for r in before[:1]] + [("order_files", "id", r) for r in after]
+        tid = await topic_for("result")
+        if not items:
+            msgs = [await bot.send_message(cid, cap, message_thread_id=tid)]
+        elif len(items) == 1:
+            msgs = [await bot.send_photo(cid, media_src(items[0][2]), caption=cap, message_thread_id=tid)]
+        else:
+            msgs = await bot.send_media_group(
+                cid, [InputMediaPhoto(media=media_src(r), caption=cap if n == 0 else None)
+                      for n, (_, _, r) in enumerate(items)], message_thread_id=tid)
+        for (table, pk, r), m in zip(items, msgs):
+            if m.photo and not r.get("file_id"):
+                await sb("PATCH", table, {pk: f"eq.{r[pk]}"}, {"file_id": m.photo[-1].file_id, "data": None})
+        if receipts:
+            last = receipts[-1]
+            m = await bot.send_photo(
+                cid, media_src(last), message_thread_id=await topic_for("receipt"),
+                caption=f"#Чек #заказ{oid} · {who}" + (f" · {o['price']} сомонӣ" if o.get("price") else ""))
+            if not last.get("file_id"):
+                await sb("PATCH", "order_files", {"id": f"eq.{last['id']}"},
+                         {"file_id": m.photo[-1].file_id, "data": None})
+            for r in receipts[:-1]:
+                await sb("DELETE", "order_files", {"id": f"eq.{r['id']}"})
+        await sb("PATCH", "messages", {"order_id": f"eq.{oid}", "has_img": "eq.true"},
+                 {"image": None, "has_img": False, "file_id": None})
+        await sb("PATCH", "orders", {"id": f"eq.{oid}"}, {"archived": True, "arch_msg": msgs[0].message_id})
+        return True
     except Exception as e:
-        print("store_image:", e)
-        return None
+        print("archive_order:", e)
+        return False
 
 
-async def store_text(kind, text):
+async def late_review(o, rating, text):
     cid = await store_chat()
-    if not cid:
+    if not cid or not o.get("arch_msg"):
         return
     try:
-        await bot.send_message(cid, text[:3500], message_thread_id=await topic_for(kind))
+        await bot.send_message(cid, f"⭐ {rating}/5" + (f" «{text}»" if text else ""),
+                               reply_to_message_id=o["arch_msg"], message_thread_id=await topic_for("result"))
     except Exception as e:
-        print("store_text:", e)
+        print("late_review:", e)
+
+
+async def purge_media(oid):
+    await sb("DELETE", "order_images", {"order_id": f"eq.{oid}"})
+    await sb("DELETE", "order_files", {"order_id": f"eq.{oid}"})
+    await sb("PATCH", "messages", {"order_id": f"eq.{oid}", "has_img": "eq.true"},
+             {"image": None, "has_img": False, "file_id": None})
+    await sb("PATCH", "orders", {"id": f"eq.{oid}"}, {"has_image": False, "purged": True})
 
 
 async def fetch_image(file_id):
@@ -393,8 +457,7 @@ async def create(req):
     if promo:
         await sb("PATCH", "promos", {"code": f"eq.{code}"}, {"uses_left": promo["uses_left"] - 1})
     if img:
-        fid = await store_image("shot", o["id"], img, "@" + (u.get("username") or "-"))
-        await sb("POST", "order_images", None, {"order_id": o["id"], "data": None if fid else img, "file_id": fid})
+        await sb("POST", "order_images", None, {"order_id": o["id"], "data": img})
     await tellk(ADMIN_ID, "new", id=o["id"], name=nm(sv["name"], await lang_of(ADMIN_ID)),
                 user=u.get("username", "-"))
     return OK()
@@ -445,9 +508,7 @@ async def pay(req):
     img = b.get("image")
     if o["status"] != "unpaid" or not ok_img(img, 3_000_000):
         raise web.HTTPBadRequest()
-    fid = await store_image("receipt", o["id"], img, "@" + (u.get("username") or "-"))
-    await sb("POST", "order_files", None, {"order_id": o["id"], "kind": "receipt",
-                                           "data": None if fid else img, "file_id": fid})
+    await sb("POST", "order_files", None, {"order_id": o["id"], "kind": "receipt", "data": img})
     await sb("PATCH", "orders", {"id": f"eq.{o['id']}"}, {"status": "checking"})
     await tellk(ADMIN_ID, "receipt", id=o["id"])
     return OK()
@@ -490,9 +551,7 @@ async def result(req):
     o = await own_order(b, u["id"], True)
     if not ok_img(b.get("image"), 3_000_000):
         raise web.HTTPBadRequest()
-    fid = await store_image("result", o["id"], b["image"])
-    await sb("POST", "order_files", None, {"order_id": o["id"], "kind": "result",
-                                           "data": None if fid else b["image"], "file_id": fid})
+    await sb("POST", "order_files", None, {"order_id": o["id"], "kind": "result", "data": b["image"]})
     return OK()
 
 
@@ -594,9 +653,8 @@ async def chat_send(req):
         raise web.HTTPBadRequest()
     if not text and not img:
         raise web.HTTPBadRequest()
-    fid = await store_image("chat", o["id"], img, "@" + (u.get("username") or "-")) if img else None
     await sb("POST", "messages", None, {"order_id": o["id"], "sender_id": u["id"], "text": text,
-                                        "image": None if fid else img, "file_id": fid, "has_img": bool(img)})
+                                        "image": img, "has_img": bool(img)})
     await tellk(o["user_id"] if adm else ADMIN_ID, "chat", id=o["id"], text=text[:200] or "📷")
     if not adm:
         st = await get_settings()
@@ -776,7 +834,10 @@ async def review_create(req):
     await sb("POST", "reviews", None, {"order_id": o["id"], "user_id": u["id"], "rating": rating, "text": text})
     if b.get("allow_share"):
         await sb("PATCH", "orders", {"id": f"eq.{o['id']}"}, {"allow_share": True})
-    await store_text("review", f"⭐ {rating}/5 · #заказ{o['id']} · @{u.get('username') or '-'}\n{text}")
+    if o.get("archived"):
+        asyncio.create_task(late_review(o, rating, text))
+    else:
+        asyncio.create_task(archive_order(o["id"]))
     await tellk(ADMIN_ID, "review", id=o["id"], rating=rating, text=text)
     return OK()
 
@@ -888,27 +949,18 @@ async def storage_test(req):
 
 @routes.post("/api/migrate")
 async def migrate(req):
-    """Расмҳои кӯҳнаи базаро ба Telegram мебарад (камтар аз 20 паём дар як дақиқа, ки Telegram иҷозат медиҳад)."""
+    """Ҳамаи фармоишҳои анҷомшударо ҳозир ба архив мегузорад (дар як маротиба 3 то, ки Telegram зиёд иҷозат намедиҳад)."""
     b, u, adm = await ctx(req)
     if not adm:
         raise web.HTTPForbidden()
     if not await store_chat():
         raise web.HTTPBadRequest(text="no storage")
-    specs = [("order_images", "data", "order_id", "order_id,data", "shot"),
-             ("order_files", "data", "id", "id,order_id,kind,data", None),
-             ("messages", "image", "id", "id,order_id,image", "chat")]
     moved = 0
-    for table, col, pk, sel, kind in specs:
-        rows = await sb("GET", table, {"select": sel, "file_id": "is.null", col: "not.is.null", "limit": "3"})
-        for r in rows:
-            fid = await store_image(kind or r["kind"], r.get("order_id"), r[col])
-            if fid:
-                await sb("PATCH", table, {pk: f"eq.{r[pk]}"}, {"file_id": fid, col: None})
-                moved += 1
-            await asyncio.sleep(3.2)
-    left = 0
-    for table, col, pk, sel, kind in specs:
-        left += len(await sb("GET", table, {"select": pk, "file_id": "is.null", col: "not.is.null", "limit": "1000"}))
+    for o in await sb("GET", "orders", {"select": "id", "status": "eq.done", "archived": "eq.false", "limit": "3"}):
+        if await archive_order(o["id"]):
+            moved += 1
+        await asyncio.sleep(2)
+    left = len(await sb("GET", "orders", {"select": "id", "status": "eq.done", "archived": "eq.false", "limit": "1000"}))
     return web.json_response({"moved": moved, "left": left})
 
 
@@ -937,6 +989,16 @@ async def background():
                 elif age > timedelta(hours=24) and not o["reminded"]:
                     await sb("PATCH", "orders", {"id": f"eq.{o['id']}"}, {"reminded": True})
                     await tellk(o["user_id"], "remind_priced" if o["status"] == "priced" else "remind_unpaid", id=o["id"])
+            if await store_chat():
+                cut3 = (now - timedelta(days=3)).isoformat()
+                for o in await sb("GET", "orders", {"select": "id", "status": "eq.done", "archived": "eq.false",
+                                                    "done_at": f"lt.{cut3}", "limit": "3"}):
+                    await archive_order(o["id"])
+                    await asyncio.sleep(2)
+            cut30 = (now - timedelta(days=30)).isoformat()
+            for o in await sb("GET", "orders", {"select": "id", "status": "in.(cancelled,rejected)",
+                                                "purged": "eq.false", "status_at": f"lt.{cut30}", "limit": "20"}):
+                await purge_media(o["id"])
             s = await sb("GET", "settings", {"key": "eq.last_backup"})
             last = ts(s[0]["value"]) if s and s[0]["value"] else None
             if not last or now - last > timedelta(days=7):
