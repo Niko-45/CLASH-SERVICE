@@ -31,15 +31,14 @@ body{padding:0 16px calc(48px + env(safe-area-inset-bottom));
 @keyframes spin{to{transform:rotate(360deg)}}
 
 h2{font-size:23px;font-weight:800;letter-spacing:-.5px;margin:10px 0 16px}
-h2:first-letter{color:var(--gold)}
 .mut{color:var(--mut);font-size:13px;font-weight:500}
 .gold{color:var(--gold);font-weight:700}
 
-/* язык */
+/* забон */
 .lang{display:flex;justify-content:flex-end;gap:8px;padding:10px 0 4px}
 .lang .chip{padding:6px 16px;font-size:12px;font-weight:700;letter-spacing:.5px}
 
-/* навигация — pill-бар бо glow */
+/* навигатсия */
 .nav{position:sticky;top:8px;z-index:20;display:flex;gap:6px;padding:7px;
   margin-bottom:16px;border-radius:22px;
   background:rgba(13,18,32,.72);
@@ -53,10 +52,10 @@ h2:first-letter{color:var(--gold)}
 .nav span.on{background:var(--grad-gold);color:#1a1206;
   box-shadow:0 4px 18px -2px rgba(255,201,77,.55)}
 .nav i{position:absolute;top:-3px;right:0;min-width:17px;height:17px;padding:0 5px;border-radius:9px;
-  background:var(--bad);color:#fff;font:800 10px/17px system-ui;font-style:normal;
+  background:var(--bad);color:#fff;font:800 10px/17px system-ui,sans-serif;font-style:normal;
   box-shadow:0 2px 6px rgba(255,107,107,.6);animation:pop .3s}
 
-/* карточкаҳо — glass + hover glow */
+/* кортҳо */
 .card{position:relative;background:var(--grad-card);border-radius:var(--r);
   padding:16px 16px 14px;margin-bottom:12px;cursor:pointer;
   border:1px solid var(--line);box-shadow:var(--sh);
@@ -75,7 +74,7 @@ h2:first-letter{color:var(--gold)}
   border:1px solid var(--line);box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
 .ic img{width:100%;height:100%;object-fit:cover}
 
-/* прогресс — лента */
+/* прогресс */
 .bar{height:9px;border-radius:7px;overflow:hidden;margin:12px 0 5px;
   background:rgba(0,0,0,.4);box-shadow:inset 0 1px 3px rgba(0,0,0,.5)}
 .bar i{display:block;height:100%;border-radius:7px;
@@ -83,8 +82,8 @@ h2:first-letter{color:var(--gold)}
   background-size:200% 100%;animation:shine 2s linear infinite;
   box-shadow:0 0 14px rgba(255,201,77,.6);transition:width .7s}
 
-/* сеткаи хидматҳо */
-.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+/* хидматҳо */
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .sv{position:relative;overflow:hidden;background:var(--grad-card);
   border-radius:var(--r);padding:18px 14px;cursor:pointer;
   border:1px solid var(--line);box-shadow:var(--sh);
@@ -97,7 +96,7 @@ h2:first-letter{color:var(--gold)}
 .sv b{font-size:14px;display:block;margin-top:10px;line-height:1.3}
 .sv.x{background:transparent;border:1.5px dashed rgba(255,201,77,.5)}
 
-/* чипсҳо */
+/* чипҳо */
 .chips{display:flex;gap:8px;overflow-x:auto;margin:4px 0 16px;padding-bottom:4px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
 .chip{flex:none;padding:9px 16px;border-radius:22px;cursor:pointer;font-size:13px;font-weight:700;
@@ -119,9 +118,9 @@ textarea{min-height:92px;resize:vertical}
 input[type=file]{padding:11px;font-size:13px}
 input[type=checkbox]{padding:0}
 
-/* кнопкаҳо */
+/* тугмаҳо */
 .btn{width:100%;margin-top:18px;padding:16px;border:0;border-radius:17px;cursor:pointer;
-  font:800 15px inherit;letter-spacing:.3px;color:#1a1206;
+  font-family:inherit;font-weight:800;font-size:15px;letter-spacing:.3px;color:#1a1206;
   background:var(--grad-gold);box-shadow:0 8px 24px -6px rgba(255,201,77,.55);
   transition:transform .15s,box-shadow .2s}
 .btn:active{transform:scale(.97);box-shadow:0 4px 14px -4px rgba(255,201,77,.5)}
@@ -158,7 +157,7 @@ input.sw:checked::after{left:23px}
   background:var(--grad-gold);color:#1a1206;border:0;
   box-shadow:0 6px 18px -5px rgba(255,201,77,.5)}
 .send{display:flex;gap:8px;position:sticky;bottom:10px;padding:8px 0;
-  background:linear-gradient(transparent,var(--bg) 30%)}
+  background:linear-gradient(rgba(7,9,18,0),var(--bg) 30%)}
 .send input{margin:0}
 .sb{width:52px;border:0;border-radius:15px;cursor:pointer;font-size:20px;color:#1a1206;
   background:var(--grad-gold);box-shadow:0 6px 18px -5px rgba(255,201,77,.55);
@@ -167,16 +166,13 @@ input.sw:checked::after{left:23px}
 
 .pic{width:100%;border-radius:16px;margin:8px 0;display:block;
   box-shadow:var(--sh);border:1px solid var(--line)}
-</style>
-
-  
-</head>
+</style></head>
 <body><div id="app"></div>
 <script>
 const API="https://clash-service-production.up.railway.app"; // истиноди HTTPS-и бэкенд
 const DEBUG=true; // true = дар хато тафсилоти кӯтоҳ нишон медиҳад; баъди санҷиш false кунед
 const tg=Telegram.WebApp;tg.ready();tg.expand();
-try{tg.setHeaderColor("#10132A");tg.setBackgroundColor("#10132A")}catch(e){}
+try{tg.setHeaderColor("#070912");tg.setBackgroundColor("#070912")}catch(e){}
 const A=document.getElementById("app"),g=id=>document.getElementById(id);
 const hap=()=>{try{tg.HapticFeedback.impactOccurred("light")}catch(e){}};
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -210,7 +206,7 @@ tg:{load:"Бор шуда истодааст…",err:"Хато шуд.",errOpen:
  s_name:"Ном (барои ду забон: Тоҷикӣ / Русӣ)",s_price:"Нарх \"аз ... сомонӣ\" (холӣ = мувофиқа)",s_unit:"Нарх барои 1 воҳид (ҳисобкунак; холӣ = ҳисобкунак нест)",
  s_fields:"Майдонҳои форма: ҳар сатр як майдон. Нишонаҳо дар охир: (ихтиёрӣ); (аз) = сатҳи ҳозира; (то) = сатҳи дилхоҳ; (шумора) = шумора. Барои ду забон: Тоҷикӣ / Русӣ",
  s_acc:"Барои ин хидмат аккаунти клиент лозим аст (огоҳии бан нишон дода мешавад)",s_act:"Фаъол (клиентон мебинанд)",s_delimg:"Расмро нест кардан",s_payT:"Реквизитҳои пардохт (клиент баъди тасдиқи нарх мебинад)",s_payPh:"Масалан: Alif 1234 5678 …, ном",s_saved:"Нигоҳ дошта шуд ✓",
- now:"ҳозир",m:" дақ пеш",h:" соат пеш",d:" рӯз пеш",left:"боқӣ: ",timeUp:"вақт тамом шуд",mn:"дақ",s_store:"Гурӯҳи нигоҳдорӣ барои расмҳо (ID, масалан -1001234567890)",s_storeHint:"Гурӯҳи Telegram созед, мавзӯъҳоро (Topics) фаъол кунед, ботро админ кунед, дар гурӯҳ /id нависед ва рақамро ин ҷо гузоред. Танҳо фармоишҳои муваффақ ба гурӯҳ мераванд (до/после, шарҳ, чек). Бекоршудаҳо намераванд.",s_test:"Санҷиш",s_migr:"Фармоишҳои анҷомшударо ба архив гузоштан",s_ok:"Кор мекунад ✓",s_noForum:"Мавзӯъҳо фаъол нестанд, ҳештегҳо истифода мешаванд.",s_left:"Боқӣ монд:",s_done:"Ҳамааш интиқол ёфт ✓",imgBad:"Расм кушода нашуд. Расми дигар (JPG ё PNG) интихоб кунед.",busy:"Ҳоло қабули фармоиш баста аст. Баъдтар кӯшиш кунед.",queue:"Дар навбат:",limit:"Шумо аллакай фармоишҳои кушодаи зиёд доред. Аввал онҳо анҷом шаванд.",promoLbl:"Промокод (ихтиёрӣ)",promoBad:"Промокод нодуруст ё тамом шудааст.",rules:"📜 Қоидаҳо",rulesEmpty:"Қоидаҳо ҳоло нест.",workHrs:"Соатҳои корӣ:",disc:"Тахфиф",refT:"Дӯстонро даъват кунед",refTxt:"Дӯсти нав 10% тахфиф мегирад ва шумо ҳам 10% баъди аввалин фармоиши ӯ.",refCopy:"Нусха кардан",refShare:"Фиристодан",copied:"Нусха шуд ✓",tagP:"Теги бозингар",tagC:"Теги клан",repeat:"🔁 Такрор",search:"🔍 Ҷустуҷӯ: ном, #рақам",allowShare:"Иҷозат медиҳам, ки расми натиҷа бе ном дар канал нашр шавад",shareBtn:"📣 Ба канал фиристодан",shared:"Нашр шуд ✓",shareFail:"Нашр нашуд. Бот бояд админи канал бошад.",repSvc:"Аз рӯи хидмат",repTop:"Беҳтарин клиентон",export:"📤 Нусхаи база ба Telegram",exported:"Фиристода шуд ✓",s_busy:"Қабули фармоишро бастан",s_max:"Ҳадди фармоишҳои кушода барои як клиент",s_hours:"Соатҳои корӣ, масалан 09:00-22:00 (вақти Душанбе)",s_away:"Паёми худкор берун аз соатҳои корӣ (Тоҷикӣ / Русӣ)",s_chan:"Канал барои нашри натиҷаҳо (@ном; бот бояд админи канал бошад)",s_rules:"Қоидаҳо: матни тоҷикӣ, баъд сатри ---, баъд матни русӣ",promoT:"Промокодҳо",promoAdd:"Илова кардан",promoUses:"маротиба"},
+ now:"ҳозир",m:" дақ пеш",h:" соат пеш",d:" рӯз пеш",left:"боқӣ: ",timeUp:"вақт тамом шуд",mn:"дақ",offLbl:"Тахфифи шумо, сомонӣ (ихтиёрӣ)",finalP:"Нархи ниҳоӣ",s_store:"Гурӯҳи нигоҳдорӣ барои расмҳо (ID, масалан -1001234567890)",s_storeHint:"Гурӯҳи Telegram созед, мавзӯъҳоро (Topics) фаъол кунед, ботро админ кунед, дар гурӯҳ /id нависед ва рақамро ин ҷо гузоред. Танҳо фармоишҳои муваффақ ба гурӯҳ мераванд (до/после, шарҳ, чек). Бекоршудаҳо намераванд.",s_test:"Санҷиш",s_migr:"Фармоишҳои анҷомшударо ба архив гузоштан",s_ok:"Кор мекунад ✓",s_noForum:"Мавзӯъҳо фаъол нестанд, ҳештегҳо истифода мешаванд.",s_left:"Боқӣ монд:",s_done:"Ҳамааш интиқол ёфт ✓",imgBad:"Расм кушода нашуд. Расми дигар (JPG ё PNG) интихоб кунед.",busy:"Ҳоло қабули фармоиш баста аст. Баъдтар кӯшиш кунед.",queue:"Дар навбат:",limit:"Шумо аллакай фармоишҳои кушодаи зиёд доред. Аввал онҳо анҷом шаванд.",promoLbl:"Промокод (ихтиёрӣ)",promoBad:"Промокод нодуруст ё тамом шудааст.",rules:"📜 Қоидаҳо",rulesEmpty:"Қоидаҳо ҳоло нест.",workHrs:"Соатҳои корӣ:",disc:"Тахфиф",refT:"Дӯстонро даъват кунед",refTxt:"Дӯсти нав 10% тахфиф мегирад ва шумо ҳам 10% баъди аввалин фармоиши ӯ.",refCopy:"Нусха кардан",refShare:"Фиристодан",copied:"Нусха шуд ✓",tagP:"Теги бозингар",tagC:"Теги клан",repeat:"🔁 Такрор",search:"🔍 Ҷустуҷӯ: ном, #рақам",allowShare:"Иҷозат медиҳам, ки расми натиҷа бе ном дар канал нашр шавад",shareBtn:"📣 Ба канал фиристодан",shared:"Нашр шуд ✓",shareFail:"Нашр нашуд. Бот бояд админи канал бошад.",repSvc:"Аз рӯи хидмат",repTop:"Беҳтарин клиентон",export:"📤 Нусхаи база ба Telegram",exported:"Фиристода шуд ✓",s_busy:"Қабули фармоишро бастан",s_max:"Ҳадди фармоишҳои кушода барои як клиент",s_hours:"Соатҳои корӣ, масалан 09:00-22:00 (вақти Душанбе)",s_away:"Паёми худкор берун аз соатҳои корӣ (Тоҷикӣ / Русӣ)",s_chan:"Канал барои нашри натиҷаҳо (@ном; бот бояд админи канал бошад)",s_rules:"Қоидаҳо: матни тоҷикӣ, баъд сатри ---, баъд матни русӣ",promoT:"Промокодҳо",promoAdd:"Илова кардан",promoUses:"маротиба"},
 ru:{load:"Загрузка…",err:"Ошибка.",errOpen:"Ошибка. Откройте приложение заново.",errRetry:"Ошибка. Попробуйте ещё раз.",
  back:"← Назад",save:"Сохранить",send:"Отправить",som:"сомони",hrs:"ч",
  n_o:"Заказы",n_a:"Новости",n_f:"Финансы",n_s:"Услуги",n_p:"Профиль",
@@ -234,7 +230,7 @@ ru:{load:"Загрузка…",err:"Ошибка.",errOpen:"Ошибка. Отк
  s_name:"Название (для двух языков: Тоҷикӣ / Русский)",s_price:"Цена «от … сомони» (пусто = договорная)",s_unit:"Цена за 1 единицу (для калькулятора; пусто = без калькулятора)",
  s_fields:"Поля формы: каждое с новой строки. Пометки в конце: (ихтиёрӣ) = необязательно; (аз) = текущий уровень; (то) = нужный уровень; (шумора) = количество. Для двух языков: Тоҷикӣ / Русский",
  s_acc:"Для этой услуги нужен аккаунт клиента (показывать предупреждение о бане)",s_act:"Включена (клиенты видят)",s_delimg:"Удалить фото",s_payT:"Реквизиты для оплаты (клиент увидит после подтверждения цены)",s_payPh:"Например: Alif 1234 5678 …, имя",s_saved:"Сохранено ✓",
- now:"только что",m:" мин назад",h:" ч назад",d:" дн назад",left:"осталось: ",timeUp:"время вышло",mn:"мин",s_store:"Группа-хранилище для фото (ID, например -1001234567890)",s_storeHint:"Создайте группу в Telegram, включите темы (Topics), сделайте бота админом, напишите в группе /id и вставьте число сюда. В группу попадают только успешные заказы (до/после, отзыв, чек). Отменённые не попадают.",s_test:"Проверить",s_migr:"Отправить завершённые заказы в архив",s_ok:"Работает ✓",s_noForum:"Темы не включены, используются хештеги.",s_left:"Осталось:",s_done:"Всё перенесено ✓",imgBad:"Не удалось открыть фото. Выберите другое (JPG или PNG).",busy:"Приём заказов сейчас закрыт. Попробуйте позже.",queue:"В очереди:",limit:"У вас уже много открытых заказов. Дождитесь их завершения.",promoLbl:"Промокод (необяз.)",promoBad:"Промокод неверный или закончился.",rules:"📜 Правила",rulesEmpty:"Правил пока нет.",workHrs:"Рабочие часы:",disc:"Скидка",refT:"Пригласите друзей",refTxt:"Новый друг получает скидку 10%, и вы тоже 10% после его первого заказа.",refCopy:"Копировать",refShare:"Отправить",copied:"Скопировано ✓",tagP:"Тег игрока",tagC:"Тег клана",repeat:"🔁 Повторить",search:"🔍 Поиск: имя, #номер",allowShare:"Разрешаю опубликовать фото результата без имени в канале",shareBtn:"📣 Отправить в канал",shared:"Опубликовано ✓",shareFail:"Не опубликовано. Бот должен быть админом канала.",repSvc:"По услугам",repTop:"Лучшие клиенты",export:"📤 Резервная копия в Telegram",exported:"Отправлено ✓",s_busy:"Закрыть приём заказов",s_max:"Лимит открытых заказов на клиента",s_hours:"Рабочие часы, например 09:00-22:00 (время Душанбе)",s_away:"Автоответ вне рабочих часов (Тоҷикӣ / Русский)",s_chan:"Канал для публикации результатов (@имя; бот должен быть админом)",s_rules:"Правила: текст на тоҷикском, затем строка ---, затем текст на русском",promoT:"Промокоды",promoAdd:"Добавить",promoUses:"раз"}
+ now:"только что",m:" мин назад",h:" ч назад",d:" дн назад",left:"осталось: ",timeUp:"время вышло",mn:"мин",offLbl:"Ваша скидка, сомони (необяз.)",finalP:"Итоговая цена",s_store:"Группа-хранилище для фото (ID, например -1001234567890)",s_storeHint:"Создайте группу в Telegram, включите темы (Topics), сделайте бота админом, напишите в группе /id и вставьте число сюда. В группу попадают только успешные заказы (до/после, отзыв, чек). Отменённые не попадают.",s_test:"Проверить",s_migr:"Отправить завершённые заказы в архив",s_ok:"Работает ✓",s_noForum:"Темы не включены, используются хештеги.",s_left:"Осталось:",s_done:"Всё перенесено ✓",imgBad:"Не удалось открыть фото. Выберите другое (JPG или PNG).",busy:"Приём заказов сейчас закрыт. Попробуйте позже.",queue:"В очереди:",limit:"У вас уже много открытых заказов. Дождитесь их завершения.",promoLbl:"Промокод (необяз.)",promoBad:"Промокод неверный или закончился.",rules:"📜 Правила",rulesEmpty:"Правил пока нет.",workHrs:"Рабочие часы:",disc:"Скидка",refT:"Пригласите друзей",refTxt:"Новый друг получает скидку 10%, и вы тоже 10% после его первого заказа.",refCopy:"Копировать",refShare:"Отправить",copied:"Скопировано ✓",tagP:"Тег игрока",tagC:"Тег клана",repeat:"🔁 Повторить",search:"🔍 Поиск: имя, #номер",allowShare:"Разрешаю опубликовать фото результата без имени в канале",shareBtn:"📣 Отправить в канал",shared:"Опубликовано ✓",shareFail:"Не опубликовано. Бот должен быть админом канала.",repSvc:"По услугам",repTop:"Лучшие клиенты",export:"📤 Резервная копия в Telegram",exported:"Отправлено ✓",s_busy:"Закрыть приём заказов",s_max:"Лимит открытых заказов на клиента",s_hours:"Рабочие часы, например 09:00-22:00 (время Душанбе)",s_away:"Автоответ вне рабочих часов (Тоҷикӣ / Русский)",s_chan:"Канал для публикации результатов (@имя; бот должен быть админом)",s_rules:"Правила: текст на тоҷикском, затем строка ---, затем текст на русском",promoT:"Промокоды",promoAdd:"Добавить",promoUses:"раз"}
 };
 const WD={tg:["Яш","Дш","Сш","Чш","Пш","Ҷм","Шб"],ru:["Вс","Пн","Вт","Ср","Чт","Пт","Сб"]};
 const t=k=>T[lang][k]??T.tg[k]??k;
@@ -290,7 +286,7 @@ function calcEst(k){const s=SVC[k],e=estimate(s,s.fields.map((f,i)=>g("f_"+i).va
 const grp=o=>o.status=="new"?"new":["priced","unpaid","checking","working"].includes(o.status)?"run":o.status=="done"?"done":"rej";
 function card(o){
  const s=sv(o.service);
- return `<div class="card" style="border-left-color:${COL[o.status]||COL.new}" onclick="detail(${+o.id})"><div class="row"><div style="display:flex;gap:10px;align-items:center">${ic(s)}<div><b>${esc(loc(s.name))}</b><div class="mut">#${+o.id} · ${ago(o.created_at)}${me.admin?" · @"+esc(o.users?.username||o.users?.name||o.user_id):""}</div></div></div><div style="text-align:right">${o.unread?`<span class="tag" style="color:var(--gold)">💬 ${+o.unread}</span> `:""}${tag(o.status)}</div></div>${o.price?`<div class="gold" style="margin-top:8px">${+o.price} ${t("som")}</div>`:""}${prog(o)}</div>`}
+ return `<div class="card" style="border-left:4px solid ${COL[o.status]||COL.new}" onclick="detail(${+o.id})"><div class="row"><div style="display:flex;gap:10px;align-items:center">${ic(s)}<div><b>${esc(loc(s.name))}</b><div class="mut">#${+o.id} · ${ago(o.created_at)}${me.admin?" · @"+esc(o.users?.username||o.users?.name||o.user_id):""}</div></div></div><div style="text-align:right">${o.unread?`<span class="tag" style="color:var(--gold)">💬 ${+o.unread}</span> `:""}${tag(o.status)}</div></div>${o.price?`<div class="gold" style="margin-top:8px">${+o.price} ${t("som")}</div>`:""}${prog(o)}</div>`}
 async function home(){
  clearInterval(poll);
  A.innerHTML=`<p class="mut" style="padding:20px 0">${t("load")}</p>`;
@@ -353,10 +349,10 @@ async function send(k){
 function detail(id){
  const o=orders.find(x=>x.id==id),s=sv(o.service),st=o.status,ad=me.admin;
  const rows=Object.entries(o.data||{}).map(([k,v])=>`<div class="row"><span class="mut">${esc(loc(LEG[k]||k))}</span><b>${esc(v)}</b></div>`).join("");
- const priceCard=`<div ${cd}><div class="gold" style="font-size:24px">${+o.price} ${t("som")}</div>${+o.hours?`<div class="mut">${t("term")}: ${t("about")} ${+o.hours} ${t("hrs")}</div>`:""}</div>`;
+ const priceCard=`<div ${cd}><div class="gold" style="font-size:26px">${+o.base_price&&+o.base_price!=+o.price?`<s class="mut" style="font-size:16px;font-weight:500">${+o.base_price}</s> `:""}${+o.price} ${t("som")}</div>${+o.disc_pct&&+o.base_price!=+o.price?`<div class="mut">${t("disc")}: −${+o.disc_pct}%</div>`:""}${+o.hours?`<div class="mut">${t("term")}: ${t("about")} ${+o.hours} ${t("hrs")}</div>`:""}</div>`;
  let act="";
  if(ad){
-  if(st=="new"||st=="priced")act=`<label>${t("priceLbl")}${o.est_price?" · "+t("estHint")+" "+(+o.est_price):""}${+o.disc_pct?" · "+t("disc")+" "+(+o.disc_pct)+"%":""}</label><input id="pr" type="number" min="0" value="${+o.price||+o.est_price||""}"><label>${t("hoursLbl")}</label><input id="hr" type="number" min="0" step="0.5" value="${+o.hours||""}"><button class="btn" onclick="setPrice(${+o.id})">${t("priceBtn")}</button>`;
+  if(st=="new"||st=="priced")act=`<label>${t("priceLbl")}${o.est_price?" · "+t("estHint")+" "+(+o.est_price):""}</label><input id="pr" type="number" min="0" value="${+o.base_price||+o.est_price||""}" oninput="pvUpd(${+o.disc_pct||0})"><label>${t("offLbl")}</label><input id="of" type="number" min="0" placeholder="0" oninput="pvUpd(${+o.disc_pct||0})"><div class="gold" id="pv" style="margin-top:12px"></div><label>${t("hoursLbl")}</label><input id="hr" type="number" min="0" step="0.5" value="${+o.hours||""}"><button class="btn" onclick="setPrice(${+o.id})">${t("priceBtn")}</button>`;
   else if(st=="checking")act=`<p class="mut">${t("receiptTitle")}</p><div id="rc"></div><div class="grid"><button class="btn ok" onclick="run('/api/orders/paycheck',{id:${+o.id},ok:true})">${t("payOk")}</button><button class="btn g" onclick="run('/api/orders/paycheck',{id:${+o.id},ok:false})">${t("payBad")}</button></div>`;
   else if(st=="working")act=`<label>${t("resultLbl")}</label><input id="rs" type="file" accept="image/*"><button class="btn ok" onclick="finish(${+o.id})">${t("finish")}</button>`;
   else if(st=="done")act=`<p class="mut">${t("resultTitle")}</p><div id="rc"></div><label>${t("addResult")}</label><input id="rs" type="file" accept="image/*"><button class="btn g" onclick="addRes(${+o.id})">${t("send")}</button>`;
@@ -379,6 +375,7 @@ function detail(id){
   (o.price&&st!="priced"&&st!="unpaid"?`<div class="row"><span class="mut">${t("price")}</span><span class="gold">${+o.price} ${t("som")}</span></div>`:"")+
   (+o.hours&&st!="priced"&&st!="unpaid"?`<div class="row"><span class="mut">${t("term")}</span><span>~${+o.hours} ${t("hrs")}</span></div>`:"")+
   prog(o)+act+`<button class="btn g" onclick="chat(${+o.id})">${t("chat")}</button>`;
+ if(g("pv"))pvUpd(+o.disc_pct||0);
  if(o.has_image)loadShot(o.id);
  if(g("rc"))loadFiles(o.id,st=="checking"?"receipt":"result");
  if(g("pi"))api("/api/settings").then(r=>{const b=g("pi");if(b)b.textContent=r.pay_info||t("payEmpty")}).catch(()=>{});
@@ -397,7 +394,9 @@ async function loadFiles(id,kind){
 async function shareCh(id){try{await api("/api/orders/share",{id});home()}catch(e){tg.showAlert(t("shareFail"))}}
 function repeat(id){const o=orders.find(x=>x.id==id);if(!SVC[o.service]||!SVC[o.service].active){tg.showAlert(t("err"));return}
  form(o.service);SVC[o.service].fields.forEach((f,i)=>{const v=(o.data||{})[f.label];if(v!==undefined)g("f_"+i).value=v});calcEst(o.service)}
-function setPrice(id){const v=+g("pr").value;if(v>0)run("/api/orders/price",{id,price:v,hours:+g("hr").value||0})}
+function pvUpd(d){const p=+g("pr").value||0,x=+g("of").value||0,b=Math.max(0,p-x),f=Math.floor((b*(100-d)+50)/100);
+ g("pv").textContent=t("finalP")+": "+p+(x?" − "+x+" = "+b:"")+(d?" → −"+d+"% = "+f:"")+" "+t("som")}
+function setPrice(id){const v=+g("pr").value;if(v>0)run("/api/orders/price",{id,price:v,off:+g("of").value||0,hours:+g("hr").value||0})}
 async function payRc(id){
  const f=g("rs").files[0];if(!f){g("err").textContent=t("receiptNeed");return}
  try{await api("/api/orders/pay",{id,image:await shrink(f)});home()}catch(e){g("err").textContent=errTxt(e)}
