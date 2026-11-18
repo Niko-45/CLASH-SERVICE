@@ -17,6 +17,9 @@ SB_URL = os.environ["SUPABASE_URL"].rstrip("/")
 SB_KEY = os.environ["SUPABASE_SERVICE_KEY"]
 PORT = int(os.environ.get("PORT", 8080))
 BOT_NAME = ""
+DEBUG = os.environ.get("DEBUG") == "1"  # дар Railway DEBUG=1 гузоред, агар матни пурраи хатоҳоро хоҳед
+BANNED = set()
+_hits = {}
 
 bot = Bot(BOT_TOKEN)
 dp = Dispatcher()
@@ -57,7 +60,9 @@ async def sb(method, table, params=None, body=None):
     async with SESSION.request(method, f"{SB_URL}/rest/v1/{table}",
                                headers=HDR, params=params, json=body) as r:
         if r.status >= 300:
-            raise web.HTTPBadGateway(text=await r.text())
+            err = await r.text()
+            print("sb error", r.status, table, err[:300])
+            raise web.HTTPBadGateway(text=err if DEBUG else "db error")
         return await r.json()
 
 
@@ -75,10 +80,26 @@ def auth(init: str) -> dict:
     return json.loads(d["user"])
 
 
+def hit(uid, key, limit, window):
+    """Маҳдудияти суръат: аз спам муҳофизат мекунад."""
+    now = time.time()
+    q = [t for t in _hits.get((uid, key), []) if now - t < window]
+    if len(q) >= limit:
+        _hits[(uid, key)] = q
+        raise web.HTTPTooManyRequests(text="rate")
+    q.append(now)
+    _hits[(uid, key)] = q
+
+
 async def ctx(req):
     b = await req.json()
     u = auth(b.get("initData", ""))
-    return b, u, u["id"] == ADMIN_ID
+    adm = u["id"] == ADMIN_ID
+    if not adm:
+        if u["id"] in BANNED:
+            raise web.HTTPForbidden(text="banned")
+        hit(u["id"], "all", 240, 60)
+    return b, u, adm
 
 
 def ts(x):
@@ -396,7 +417,7 @@ async def me(req):
 @routes.post("/api/orders")
 async def orders(req):
     b, u, adm = await ctx(req)
-    p = {"select": "*,users(name,username)", "order": "id.desc", "limit": "500"}
+    p = {"select": "*,users(name,username,banned)", "order": "id.desc", "limit": "500"}
     if not adm:
         p["user_id"] = f"eq.{u['id']}"
     rows = await sb("GET", "orders", p)
@@ -420,6 +441,8 @@ async def orders(req):
 @routes.post("/api/orders/create")
 async def create(req):
     b, u, adm = await ctx(req)
+    if not adm:
+        hit(u["id"], "create", 6, 3600)
     sv = next((x for x in await get_services() if x["key"] == b.get("service")), None)
     if not sv or not sv["active"]:
         raise web.HTTPBadRequest()
@@ -504,6 +527,8 @@ async def confirm(req):
 @routes.post("/api/orders/pay")
 async def pay(req):
     b, u, adm = await ctx(req)
+    if not adm:
+        hit(u["id"], "pay", 10, 3600)
     o = await own_order(b, u["id"], False)
     img = b.get("image")
     if o["status"] != "unpaid" or not ok_img(img, 3_000_000):
@@ -646,6 +671,8 @@ async def chat_image(req):
 @routes.post("/api/chat/send")
 async def chat_send(req):
     b, u, adm = await ctx(req)
+    if not adm:
+        hit(u["id"], "chat", 20, 60)
     o = await own_order(b, u["id"], adm)
     text = str(b.get("text", "")).strip()[:1000]
     img = b.get("image")
@@ -826,6 +853,8 @@ async def promo_del(req):
 @routes.post("/api/review/create")
 async def review_create(req):
     b, u, adm = await ctx(req)
+    if not adm:
+        hit(u["id"], "rev", 10, 3600)
     o = await own_order(b, u["id"], False)
     if o["status"] != "done":
         raise web.HTTPBadRequest()
@@ -863,6 +892,8 @@ async def profile(req):
 @routes.post("/api/profile/update")
 async def profile_update(req):
     b, u, adm = await ctx(req)
+    if not adm:
+        hit(u["id"], "prof", 10, 60)
     await upsert_user(u)
     patch = {"name": str(b.get("name", "")).strip()[:40] or u.get("first_name", ""),
              "about": str(b.get("about", "")).strip()[:300],
@@ -964,6 +995,20 @@ async def migrate(req):
     return web.json_response({"moved": moved, "left": left})
 
 
+@routes.post("/api/user/ban")
+async def user_ban(req):
+    b, u, adm = await ctx(req)
+    if not adm:
+        raise web.HTTPForbidden()
+    uid = int(b["user_id"])
+    if uid == ADMIN_ID:
+        raise web.HTTPBadRequest()
+    on = bool(b.get("banned"))
+    await sb("PATCH", "users", {"id": f"eq.{uid}"}, {"banned": on})
+    (BANNED.add if on else BANNED.discard)(uid)
+    return OK()
+
+
 @routes.post("/api/export")
 async def export(req):
     b, u, adm = await ctx(req)
@@ -999,6 +1044,8 @@ async def background():
             for o in await sb("GET", "orders", {"select": "id", "status": "in.(cancelled,rejected)",
                                                 "purged": "eq.false", "status_at": f"lt.{cut30}", "limit": "20"}):
                 await purge_media(o["id"])
+            for k in [k for k, v in _hits.items() if not v or time.time() - v[-1] > 3600]:
+                _hits.pop(k, None)
             s = await sb("GET", "settings", {"key": "eq.last_backup"})
             last = ts(s[0]["value"]) if s and s[0]["value"] else None
             if not last or now - last > timedelta(days=7):
@@ -1054,7 +1101,12 @@ async def main():
     global BOT_NAME, SESSION
     SESSION = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30),
                                     connector=aiohttp.TCPConnector(limit=60, ttl_dns_cache=300))
-    app = web.Application(middlewares=[cors], client_max_size=15 * 1024 * 1024)
+    try:
+        for r in await sb("GET", "users", {"select": "id", "banned": "eq.true", "limit": "5000"}):
+            BANNED.add(r["id"])
+    except Exception as e:
+        print("banned load:", e)
+    app = web.Application(middlewares=[cors], client_max_size=8 * 1024 * 1024)
     app.add_routes(routes)
     app.router.add_route("OPTIONS", "/{tail:.*}", lambda r: web.Response())
     runner = web.AppRunner(app)
