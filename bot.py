@@ -448,9 +448,7 @@ async def create(req):
             raise web.HTTPBadRequest(text="promo")
         promo = pr[0]
         disc = max(disc, int(promo["pct"]))
-    est = estimate(sv, data)
-    if est is not None and disc:
-        est = est * (100 - disc) // 100
+    est = estimate(sv, data)  # бе тахфиф: шумо нархро худатон паст мекунед, тахфифи % баъд ҳисоб мешавад
     o = (await sb("POST", "orders", None, {"user_id": u["id"], "service": sv["key"], "data": data,
                                            "note": note, "has_image": bool(img), "est_price": est,
                                            "disc_pct": disc}))[0]
@@ -477,12 +475,14 @@ async def price(req):
     if not adm:
         raise web.HTTPForbidden()
     o = await own_order(b, u["id"], True)
-    pr = int(b["price"])
-    if pr <= 0:
+    base = int(b["price"]) - max(0, int(b.get("off") or 0))  # нарх минус тахфифи шумо (сомонӣ)
+    if base <= 0:
         raise web.HTTPBadRequest()
+    disc = int(o.get("disc_pct") or 0)  # тахфифи % (промокод ё реферал)
+    pr = max(1, (base * (100 - disc) + 50) // 100)  # нархи ниҳоӣ барои клиент
     hours = min(1000.0, max(0.0, float(b.get("hours") or 0)))
     await sb("PATCH", "orders", {"id": f"eq.{o['id']}"},
-             {"price": pr, "status": "priced", "hours": hours or None})
+             {"price": pr, "base_price": base, "status": "priced", "hours": hours or None})
     lg = await lang_of(o["user_id"])
     await tellk(o["user_id"], "price", id=o["id"], price=pr,
                 hours=M[lg]["hours"].format(h=f"{hours:g}") if hours else "")
