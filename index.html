@@ -18,12 +18,12 @@
 html,body{margin:0;padding:0;background:var(--bg);color:var(--tx);
   font:15px/1.5 -apple-system,"SF Pro Display","Segoe UI",system-ui,sans-serif;
   -webkit-font-smoothing:antialiased;overflow-x:hidden}
-body{padding:0 16px calc(48px + env(safe-area-inset-bottom));
+body{padding:0 16px calc(120px + env(safe-area-inset-bottom));
   background:
    radial-gradient(700px 500px at 85% -5%,rgba(255,201,77,.10),transparent 70%),
    radial-gradient(600px 500px at -10% 20%,rgba(93,120,255,.12),transparent 70%),
    var(--bg);}
-#app{max-width:460px;margin:0 auto;padding-top:8px;animation:up .4s cubic-bezier(.2,.9,.3,1)}
+#app{max-width:460px;margin:0 auto;padding-top:8px}
 @keyframes up{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 @keyframes pop{0%{transform:scale(.9);opacity:0}100%{transform:scale(1);opacity:1}}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,201,77,.6)}50%{box-shadow:0 0 0 14px rgba(255,201,77,0)}}
@@ -38,22 +38,27 @@ h2{font-size:23px;font-weight:800;letter-spacing:-.5px;margin:10px 0 16px}
 .lang{display:flex;justify-content:flex-end;gap:8px;padding:10px 0 4px}
 .lang .chip{padding:6px 16px;font-size:12px;font-weight:700;letter-spacing:.5px}
 
-/* навигатсия */
-.nav{position:sticky;top:8px;z-index:20;display:flex;gap:6px;padding:7px;
-  margin-bottom:16px;border-radius:22px;
-  background:rgba(13,18,32,.72);
-  backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);
+/* меню дар поён */
+.nav{position:fixed;left:50%;transform:translateX(-50%);
+  bottom:calc(10px + env(safe-area-inset-bottom));width:min(440px,calc(100% - 24px));z-index:30;
+  display:flex;gap:2px;padding:8px;border-radius:28px;
+  background:rgba(13,18,32,.84);
+  backdrop-filter:blur(22px) saturate(170%);-webkit-backdrop-filter:blur(22px) saturate(170%);
   border:1px solid var(--line);
-  box-shadow:0 8px 24px -10px rgba(0,0,0,.7)}
-.nav span{position:relative;flex:1;text-align:center;padding:10px 2px;border-radius:16px;
-  color:var(--mut);font-size:12px;font-weight:700;cursor:pointer;
-  transition:all .25s cubic-bezier(.2,.9,.3,1)}
-.nav span:active{transform:scale(.93)}
-.nav span.on{background:var(--grad-gold);color:#1a1206;
-  box-shadow:0 4px 18px -2px rgba(255,201,77,.55)}
-.nav i{position:absolute;top:-3px;right:0;min-width:17px;height:17px;padding:0 5px;border-radius:9px;
+  box-shadow:0 14px 34px -8px rgba(0,0,0,.85),inset 0 1px 0 rgba(255,255,255,.06)}
+.nav span{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:9px 0 7px;border-radius:20px;color:var(--mut);font-size:10.5px;font-weight:700;cursor:pointer;
+  transition:color .25s,background .25s,transform .15s}
+.nav span:active{transform:scale(.9)}
+.nav span svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round;transition:filter .25s}
+.nav span.on{color:var(--gold);background:rgba(255,201,77,.11)}
+.nav span.on svg{filter:drop-shadow(0 0 7px rgba(255,201,77,.75))}
+.nav span.on::before{content:"";position:absolute;top:-1px;width:20px;height:3px;border-radius:3px;
+  background:var(--grad-gold);box-shadow:0 0 10px rgba(255,201,77,.8)}
+.nav i{position:absolute;top:3px;left:calc(50% + 6px);min-width:17px;height:17px;padding:0 5px;border-radius:9px;
   background:var(--bad);color:#fff;font:800 10px/17px system-ui,sans-serif;font-style:normal;
-  box-shadow:0 2px 6px rgba(255,107,107,.6);animation:pop .3s}
+  box-shadow:0 2px 8px rgba(255,107,107,.65);animation:pop .3s}
 
 /* кортҳо */
 .card{position:relative;background:var(--grad-card);border-radius:var(--r);
@@ -84,6 +89,7 @@ h2{font-size:23px;font-weight:800;letter-spacing:-.5px;margin:10px 0 16px}
 
 /* хидматҳо */
 .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.grid>.card{margin-bottom:0}
 .sv{position:relative;overflow:hidden;background:var(--grad-card);
   border-radius:var(--r);padding:18px 14px;cursor:pointer;
   border:1px solid var(--line);box-shadow:var(--sh);
@@ -117,6 +123,8 @@ input:focus,textarea:focus{outline:none;background:rgba(255,201,77,.05);
 textarea{min-height:92px;resize:vertical}
 input[type=file]{padding:11px;font-size:13px}
 input[type=checkbox]{padding:0}
+input[type=number]{-moz-appearance:textfield;appearance:textfield}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 
 /* тугмаҳо */
 .btn{width:100%;margin-top:18px;padding:16px;border:0;border-radius:17px;cursor:pointer;
@@ -166,6 +174,13 @@ input.sw:checked::after{left:23px}
 
 .pic{width:100%;border-radius:16px;margin:8px 0;display:block;
   box-shadow:var(--sh);border:1px solid var(--line)}
+/* боркунии зебо */
+@keyframes skel{0%{background-position:100% 0}100%{background-position:0 0}}
+.sk{height:86px;border-radius:var(--r);margin-bottom:12px;border:1px solid var(--line);
+  background:linear-gradient(90deg,#141a2e 25%,#222c4b 37%,#141a2e 63%);
+  background-size:300% 100%;animation:skel 1.4s ease infinite}
+.sk.l{height:140px}
+.sk.s{height:42px;border-radius:15px}
 </style></head>
 <body><div id="app"></div>
 <script>
@@ -251,6 +266,13 @@ function prog(o){
  const h=Math.floor(left/36e5),m=Math.floor(left%36e5/6e4);
  return `<div class="bar"><i style="width:${p.toFixed(1)}%"></i></div><div class="mut">${Math.floor(p)}% · ${p>=100?t("timeUp"):t("left")+(h?h+" "+t("hrs")+" ":"")+m+" "+t("mn")}</div>`;
 }
+const NI={
+ o:'<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="3.5"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
+ a:'<svg viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 6 2 7 2 7H4s2-1 2-7"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>',
+ f:'<svg viewBox="0 0 24 24"><path d="M5 20V11M12 20V4M19 20v-6"/></svg>',
+ s:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="2.2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2.2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2.2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2.2"/></svg>',
+ p:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-6 8-6s8 2 8 6"/></svg>'};
+const SK=(n=3)=>Array.from({length:n},(_,i)=>`<div class="sk${i==0?" l":""}"></div>`).join("");
 const payCode=o=>"QY-"+(+o.id);
 const todo=o=>me.admin?(o.status=="new"||o.status=="checking"):(o.status=="priced"||o.status=="unpaid");
 const nav=k=>{
@@ -259,8 +281,8 @@ const nav=k=>{
  if(me.admin)L.push(["f","fin",0],["s","svc",0]);
  L.push(["p","prof",0]);
  return `<div class="lang"><span class="chip${lang=="tg"?" on":""}" onclick="setLang('tg')">ТҶ</span><span class="chip${lang=="ru"?" on":""}" onclick="setLang('ru')">РУ</span></div><div class="nav">`+
-  L.map(([i,f,n])=>`<span class="${k==i?"on":""}" onclick="hap();${f}()">${t("n_"+i)}${n?`<i>${n}</i>`:""}</span>`).join("")+"</div>"};
-const wait=k=>{clearInterval(poll);A.innerHTML=nav(k)+`<p class="mut">${t("load")}</p>`};
+  L.map(([i,f,n])=>`<span class="${k==i?"on":""}" onclick="hap();${f}()">${NI[i]}${t("n_"+i)}${n?`<i>${n}</i>`:""}</span>`).join("")+"</div>"};
+const wait=k=>{clearInterval(poll);A.innerHTML=nav(k)+SK(3)};
 const fail=k=>{A.innerHTML=nav(k)+`<p>${t("err")}</p>`};
 const run=async(p,b)=>{try{await api(p,b);home()}catch(e){tg.showAlert(errTxt(e))}};
 const loadSvc=async()=>{const s=await api("/api/services");SVC={};s.items.forEach(x=>SVC[x.key]=x);svcAt=Date.now()};
@@ -287,10 +309,10 @@ function calcEst(k){const s=SVC[k],e=estimate(s,s.fields.map((f,i)=>g("f_"+i).va
 const grp=o=>o.status=="new"?"new":["priced","unpaid","checking","working"].includes(o.status)?"run":o.status=="done"?"done":"rej";
 function card(o){
  const s=sv(o.service);
- return `<div class="card" style="border-left:4px solid ${COL[o.status]||COL.new}" onclick="detail(${+o.id})"><div class="row"><div style="display:flex;gap:10px;align-items:center">${ic(s)}<div><b>${esc(loc(s.name))}</b><div class="mut">#${+o.id} · ${ago(o.created_at)}${me.admin?" · @"+esc(o.users?.username||o.users?.name||o.user_id):""}</div></div></div><div style="text-align:right">${o.unread?`<span class="tag" style="color:var(--gold)">💬 ${+o.unread}</span> `:""}${tag(o.status)}</div></div>${o.price?`<div class="gold" style="margin-top:8px">${+o.price} ${t("som")}</div>`:""}${prog(o)}</div>`}
+ return `<div class="card" style="border-left:4px solid ${COL[o.status]||COL.new}" onclick="detail(${+o.id})"><div class="row"><div style="display:flex;gap:10px;align-items:center">${ic(s)}<div><b>${esc(loc(s.name))}</b><div class="mut">#${+o.id} · ${ago(o.created_at)}${me.admin?" · @"+esc(o.users?.username||o.users?.name||o.user_id):""}</div></div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">${o.unread?`<span class="tag" style="color:var(--gold)">💬 ${+o.unread}</span> `:""}${tag(o.status)}</div></div>${o.price?`<div class="gold" style="margin-top:8px">${+o.price} ${t("som")}</div>`:""}${prog(o)}</div>`}
 async function home(){
  clearInterval(poll);
- A.innerHTML=`<p class="mut" style="padding:20px 0">${t("load")}</p>`;
+ A.innerHTML=(me?nav("o"):'<div class="sk s" style="width:55%;margin-top:34px"></div>')+SK(4);
  try{const [m,o,st]=await Promise.all([me?null:api("/api/me",{lang}),api("/api/orders"),api("/api/settings"),Object.keys(SVC).length&&Date.now()-svcAt<12e4?null:loadSvc()]);if(m)me=m;orders=o.orders;SET=st;sig=mkSig()}
  catch(e){if(e.msg=="banned"){A.innerHTML=`<p style="padding:30px 0">${t("banned")}</p>`;return}A.innerHTML=`<p style="padding:20px 0">${t("errOpen")}</p>`+(DEBUG?`<p class="mut">${esc(String(e.msg||e.message).slice(0,200))}</p>`:"");return}
  listView();
@@ -373,7 +395,7 @@ function detail(id){
   (ad?`<div class="row"><span class="mut">${t("client")}</span><b>@${esc(o.users?.username||o.users?.name||o.user_id)}</b></div>`:"")+rows+
   (o.note?`<div ${cd} style="cursor:default;margin-top:10px">${esc(o.note)}</div>`:"")+
   (o.cancel_reason?`<div ${cd}>${t("reasonLbl")} ${esc(o.cancel_reason)}</div>`:"")+
-  (o.has_image?`<div id="shot" class="mut" style="margin:10px 0">${t("shotLoad")}</div>`:"")+
+  (o.has_image?`<div id="shot" class="sk l"></div>`:"")+
   (o.price&&st!="priced"&&st!="unpaid"?`<div class="row"><span class="mut">${t("price")}</span><span class="gold">${+o.price} ${t("som")}</span></div>`:"")+
   (+o.hours&&st!="priced"&&st!="unpaid"?`<div class="row"><span class="mut">${t("term")}</span><span>~${+o.hours} ${t("hrs")}</span></div>`:"")+
   prog(o)+act+`<button class="btn g" onclick="chat(${+o.id})">${t("chat")}</button>`;
@@ -387,7 +409,7 @@ async function loadShot(id){
  try{const r=await api("/api/orders/image",{id});if(!b)return;
   if(!r.image){b.remove();return}
   const w=document.createElement("div");showPic(w,r.image);b.replaceWith(w)}
- catch(e){if(b)b.textContent=t("shotFail")}
+ catch(e){if(b){b.className="mut";b.textContent=t("shotFail")}}
 }
 async function loadFiles(id,kind){
  const b=g("rc");if(!b)return;b.innerHTML="";
