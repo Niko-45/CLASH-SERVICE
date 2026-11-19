@@ -181,6 +181,17 @@ input.sw:checked::after{left:23px}
   background-size:300% 100%;animation:skel 1.4s ease infinite}
 .sk.l{height:140px}
 .sk.s{height:42px;border-radius:15px}
+/* UX/accessibility patch: keyboard focus and reduced-motion support */
+:where(button,a,input,textarea,select,[role="button"],.nav span,.card,.sv,.chip):focus-visible{
+  outline:3px solid var(--gold); outline-offset:3px;
+}
+:where(button,a,[role="button"],.nav span,.card,.sv,.chip){touch-action:manipulation}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
+@media (forced-colors: active){
+  :where(button,a,input,textarea,select,[role="button"],.nav span,.card,.sv,.chip):focus-visible{outline:2px solid Highlight}
+}
 </style></head>
 <body><div id="app"></div>
 <script>
