@@ -19,6 +19,8 @@ PORT = int(os.environ.get("PORT", 8080))
 BOT_NAME = ""
 DEBUG = os.environ.get("DEBUG") == "1"  # дар Railway DEBUG=1 гузоред, агар матни пурраи хатоҳоро хоҳед
 BANNED = set()
+TZ_OFFSET_H = 5  # Душанбе = UTC+5
+LOCKS = {}
 _hits = {}
 
 bot = Bot(BOT_TOKEN)
@@ -75,7 +77,8 @@ def auth(init: str) -> dict:
     secret = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
     if not hmac.compare_digest(hmac.new(secret, check.encode(), hashlib.sha256).hexdigest(), got):
         raise web.HTTPForbidden()
-    if time.time() - int(d.get("auth_date", 0)) > 86400:
+    age = time.time() - int(d.get("auth_date", 0))
+    if age > 86400 or age < -300:
         raise web.HTTPForbidden()
     return json.loads(d["user"])
 
@@ -111,9 +114,34 @@ def in_hours(spec):
     if not m:
         return True
     a, b = int(m[1]) * 60 + int(m[2]), int(m[3]) * 60 + int(m[4])
-    n = datetime.now(timezone.utc) + timedelta(hours=5)  # Душанбе UTC+5
+    n = datetime.now(timezone.utc) + timedelta(hours=TZ_OFFSET_H)
     c = n.hour * 60 + n.minute
     return a <= c < b if a < b else (c >= a or c < b)
+
+
+def user_lock(uid):
+    return LOCKS.setdefault(uid, asyncio.Lock())
+
+
+async def audit(actor, action, oid=None, info=""):
+    try:
+        await sb("POST", "audit_log", None, {"actor": actor, "action": action, "order_id": oid, "info": str(info)[:200]})
+    except Exception as e:
+        print("audit:", e)
+
+
+async def use_promo(code, uid):
+    """Промокодро бе хатои ҳамзамонӣ истифода мебарад (compare-and-set дар база)."""
+    for _ in range(4):
+        pr = await sb("GET", "promos", {"code": f"eq.{code}"})
+        if not pr or pr[0]["uses_left"] <= 0:
+            return False
+        done = await sb("PATCH", "promos", {"code": f"eq.{code}", "uses_left": f"eq.{pr[0]['uses_left']}"},
+                        {"uses_left": pr[0]["uses_left"] - 1})
+        if done:
+            await sb("POST", "promo_uses", None, {"code": code, "user_id": uid})
+            return True
+    return False
 
 
 M = {
@@ -125,6 +153,8 @@ M = {
         "declined": "Фармоиши #{id}: клиент нархро рад кард.",
         "receipt": "💳 Фармоиши #{id}: квитансия омад. Санҷед.",
         "paid_ok": "✅ Пардохт қабул шуд. Кор оғоз шуд! (фармоиши #{id})",
+        "paid_ok_acc": "✅ Пардохт қабул шуд. Кор оғоз шуд! (фармоиши #{id})\nДар вақти кор ба бозӣ аз ин аккаунт надароед, то кор халал нанамояд.",
+        "loyalty": "🎁 Барои шумо тахфифи доимии {pct}% танзим шуд!",
         "paid_bad": "❌ Квитансияи фармоиши #{id} қабул нашуд. Дубора фиристед ё дар чат нависед.",
         "done": "Фармоиши #{id} тайёр шуд!",
         "cancel_admin": "Фармоиши #{id} бекор шуд.\nСабаб: {reason}",
@@ -145,6 +175,8 @@ M = {
         "declined": "Заказ #{id}: клиент отклонил цену.",
         "receipt": "💳 Заказ #{id}: пришла квитанция. Проверьте.",
         "paid_ok": "✅ Оплата принята. Работа началась! (заказ #{id})",
+        "paid_ok_acc": "✅ Оплата принята. Работа началась! (заказ #{id})\nНе заходите в игру с этого аккаунта, пока идёт работа.",
+        "loyalty": "🎁 Для вас установлена постоянная скидка {pct}%!",
         "paid_bad": "❌ Квитанция заказа #{id} не подошла. Отправьте снова или напишите в чат.",
         "done": "Заказ #{id} готов!",
         "cancel_admin": "Заказ #{id} отменён.\nПричина: {reason}",
@@ -411,13 +443,13 @@ async def me(req):
             await sb("PATCH", "users", {"id": f"eq.{u['id']}"}, {"lang": lg})
     return web.json_response({"id": u["id"], "name": row.get("name") or u.get("first_name", ""), "admin": adm,
                               "tag": row.get("tag") or "", "clan_tag": row.get("clan_tag") or "",
-                              "discount": row.get("discount") or 0, "bot": BOT_NAME})
+                              "discount": row.get("discount") or 0, "loyalty": row.get("loyalty_pct") or 0, "bot": BOT_NAME})
 
 
 @routes.post("/api/orders")
 async def orders(req):
     b, u, adm = await ctx(req)
-    p = {"select": "*,users(name,username,banned)", "order": "id.desc", "limit": "500"}
+    p = {"select": "*,users(name,username,banned,loyalty_pct)", "order": "id.desc", "limit": "500"}
     if not adm:
         p["user_id"] = f"eq.{u['id']}"
     rows = await sb("GET", "orders", p)
@@ -425,7 +457,13 @@ async def orders(req):
     ms_t = sb("GET", "messages", {"select": "order_id,id,sender_id",
                                   "order_id": "in.(" + ",".join(str(o["id"]) for o in rows) + ")",
                                   "limit": "20000"}) if rows else _nop()
-    rv, ms = await asyncio.gather(rv_t, ms_t)
+    dn_t = sb("GET", "orders", {"select": "user_id,price", "status": "eq.done", "limit": "20000"}) if adm else _nop()
+    rv, ms, dn = await asyncio.gather(rv_t, ms_t, dn_t)
+    stats = {}
+    for r in dn:
+        x = stats.setdefault(str(r["user_id"]), {"done": 0, "sum": 0})
+        x["done"] += 1
+        x["sum"] += r["price"] or 0
     ids = {r["order_id"] for r in rv}
     by = {}
     for m in ms:
@@ -435,7 +473,7 @@ async def orders(req):
         read = (o.get("admin_read_id") if adm else o.get("client_read_id")) or 0
         o["unread"] = sum(1 for m in by.get(o["id"], [])
                           if m["id"] > read and m["sender_id"] not in (u["id"], 0))
-    return web.json_response({"orders": rows})
+    return web.json_response({"orders": rows, "stats": stats})
 
 
 @routes.post("/api/orders/create")
@@ -443,42 +481,48 @@ async def create(req):
     b, u, adm = await ctx(req)
     if not adm:
         hit(u["id"], "create", 6, 3600)
-    sv = next((x for x in await get_services() if x["key"] == b.get("service")), None)
-    if not sv or not sv["active"]:
-        raise web.HTTPBadRequest()
-    st = await get_settings()
-    if st.get("busy") == "1":
-        raise web.HTTPForbidden(text="busy")
-    row, open_ = await asyncio.gather(
-        upsert_user(u), sb("GET", "orders", {"select": "id", "user_id": f"eq.{u['id']}", "status": f"in.{OPEN}"}))
-    try:
-        mx = int(st.get("max_open") or 3)
-    except ValueError:
-        mx = 3
-    if len(open_) >= mx:
-        raise web.HTTPTooManyRequests(text="limit")
-    data = {str(k)[:40]: str(v)[:150] for k, v in list((b.get("data") or {}).items())[:10]}
-    note = str(b.get("note", ""))[:800]
-    img = b.get("image")
-    if img and not ok_img(img, 3_000_000):
-        raise web.HTTPBadRequest()
-    disc = int(row.get("discount") or 0)
-    code = str(b.get("promo") or "").strip().upper()[:30]
-    promo = None
-    if code:
-        pr = await sb("GET", "promos", {"code": f"eq.{code}"})
-        if not pr or not pr[0]["active"] or pr[0]["uses_left"] <= 0:
-            raise web.HTTPBadRequest(text="promo")
-        promo = pr[0]
-        disc = max(disc, int(promo["pct"]))
-    est = estimate(sv, data)  # бе тахфиф: шумо нархро худатон паст мекунед, тахфифи % баъд ҳисоб мешавад
-    o = (await sb("POST", "orders", None, {"user_id": u["id"], "service": sv["key"], "data": data,
-                                           "note": note, "has_image": bool(img), "est_price": est,
-                                           "disc_pct": disc}))[0]
-    if promo:
-        await sb("PATCH", "promos", {"code": f"eq.{code}"}, {"uses_left": promo["uses_left"] - 1})
-    if img:
-        await sb("POST", "order_images", None, {"order_id": o["id"], "data": img})
+    async with user_lock(u["id"]):  # як клиент: ҳар дафъа як дархост (пахши дукарата ва ҳамзамонӣ)
+        sv = next((x for x in await get_services() if x["key"] == b.get("service")), None)
+        if not sv or not sv["active"]:
+            raise web.HTTPBadRequest()
+        st = await get_settings()
+        if st.get("busy") == "1":
+            raise web.HTTPForbidden(text="busy")
+        row, open_ = await asyncio.gather(
+            upsert_user(u), sb("GET", "orders", {"select": "id", "user_id": f"eq.{u['id']}", "status": f"in.{OPEN}"}))
+        try:
+            mx = int(st.get("max_open") or 3)
+        except ValueError:
+            mx = 3
+        if len(open_) >= mx:
+            raise web.HTTPTooManyRequests(text="limit")
+        data = {str(k)[:40]: str(v)[:150] for k, v in list((b.get("data") or {}).items())[:10]}
+        note = str(b.get("note", ""))[:800]
+        img = b.get("image")
+        if img and not ok_img(img, 3_000_000):
+            raise web.HTTPBadRequest()
+        since = (datetime.now(timezone.utc) - timedelta(seconds=30)).isoformat()
+        dup = await sb("GET", "orders", {"select": "id,data", "user_id": f"eq.{u['id']}",
+                                         "service": f"eq.{sv['key']}", "created_at": f"gte.{since}"})
+        if any(d["data"] == data for d in dup):
+            return OK()  # ҳамон дархост аллакай сабт шуд
+        disc = max(int(row.get("discount") or 0), int(row.get("loyalty_pct") or 0))
+        code = str(b.get("promo") or "").strip().upper()[:30]
+        if code:
+            pr = await sb("GET", "promos", {"code": f"eq.{code}"})
+            if (not pr or not pr[0]["active"] or pr[0]["uses_left"] <= 0
+                    or (pr[0].get("expires_at") and ts(pr[0]["expires_at"]) < datetime.now(timezone.utc))
+                    or await sb("GET", "promo_uses", {"code": f"eq.{code}", "user_id": f"eq.{u['id']}"})):
+                raise web.HTTPBadRequest(text="promo")
+            if not await use_promo(code, u["id"]):
+                raise web.HTTPBadRequest(text="promo")
+            disc = max(disc, int(pr[0]["pct"]))
+        est = estimate(sv, data)  # бе тахфиф
+        o = (await sb("POST", "orders", None, {"user_id": u["id"], "service": sv["key"], "data": data,
+                                               "note": note, "has_image": bool(img), "est_price": est,
+                                               "disc_pct": disc}))[0]
+        if img:
+            await sb("POST", "order_images", None, {"order_id": o["id"], "data": img})
     await tellk(ADMIN_ID, "new", id=o["id"], name=nm(sv["name"], await lang_of(ADMIN_ID)),
                 user=u.get("username", "-"))
     return OK()
@@ -506,6 +550,7 @@ async def price(req):
     hours = min(1000.0, max(0.0, float(b.get("hours") or 0)))
     await sb("PATCH", "orders", {"id": f"eq.{o['id']}"},
              {"price": pr, "base_price": base, "status": "priced", "hours": hours or None})
+    await audit(u["id"], "price", o["id"], f"{base} → {pr}")
     lg = await lang_of(o["user_id"])
     await tellk(o["user_id"], "price", id=o["id"], price=pr,
                 hours=M[lg]["hours"].format(h=f"{hours:g}") if hours else "")
@@ -550,10 +595,13 @@ async def paycheck(req):
     if b.get("ok"):
         await sb("PATCH", "orders", {"id": f"eq.{o['id']}"},
                  {"status": "working", "started_at": datetime.now(timezone.utc).isoformat()})
-        await tellk(o["user_id"], "paid_ok", id=o["id"])
+        svc_ = next((x for x in await get_services() if x["key"] == o["service"]), None)
+        await tellk(o["user_id"], "paid_ok_acc" if svc_ and svc_.get("acc") else "paid_ok", id=o["id"])
+        await audit(u["id"], "pay_ok", o["id"])
     else:
         await sb("PATCH", "orders", {"id": f"eq.{o['id']}"}, {"status": "unpaid"})
         await tellk(o["user_id"], "paid_bad", id=o["id"])
+        await audit(u["id"], "pay_bad", o["id"])
     return OK()
 
 
@@ -589,6 +637,7 @@ async def finish(req):
     await sb("PATCH", "orders", {"id": f"eq.{o['id']}"},
              {"status": "done", "done_at": datetime.now(timezone.utc).isoformat()})
     await tellk(o["user_id"], "done", id=o["id"])
+    await audit(u["id"], "finish", o["id"])
     cl = (await sb("GET", "users", {"id": f"eq.{o['user_id']}"}))[0]
     if int(o.get("disc_pct") or 0) > 0 and cl.get("discount"):
         await sb("PATCH", "users", {"id": f"eq.{cl['id']}"}, {"discount": 0})
@@ -611,6 +660,7 @@ async def cancel(req):
         raise web.HTTPBadRequest()
     reason = str(b.get("reason", "")).strip()[:200]
     await sb("PATCH", "orders", {"id": f"eq.{o['id']}"}, {"status": "cancelled", "cancel_reason": reason or None})
+    await audit(u["id"], "cancel", o["id"], ("admin: " if adm else "client: ") + reason)
     if adm:
         await tellk(o["user_id"], "cancel_admin", id=o["id"], reason=reason or "—")
     else:
@@ -642,6 +692,7 @@ async def share(req):
     except Exception:
         raise web.HTTPBadGateway(text="channel")
     await sb("PATCH", "orders", {"id": f"eq.{o['id']}"}, {"shared": True})
+    await audit(u["id"], "share", o["id"])
     return OK()
 
 
@@ -649,7 +700,7 @@ async def share(req):
 async def chat_list(req):
     b, u, adm = await ctx(req)
     o = await own_order(b, u["id"], adm)
-    rows = await sb("GET", "messages", {"select": "id,sender_id,text,has_img", "order_id": f"eq.{o['id']}",
+    rows = await sb("GET", "messages", {"select": "id,sender_id,text,has_img,created_at", "order_id": f"eq.{o['id']}",
                                         "order": "id.asc", "limit": "200"})
     if rows:
         col = "admin_read_id" if adm else "client_read_id"
@@ -657,7 +708,7 @@ async def chat_list(req):
             await sb("PATCH", "orders", {"id": f"eq.{o['id']}"}, {col: rows[-1]["id"]})
     return web.json_response({"messages": [
         {"id": m["id"], "mine": m["sender_id"] == u["id"], "sys": m["sender_id"] == 0,
-         "text": m["text"], "img": bool(m.get("has_img"))} for m in rows]})
+         "text": m["text"], "img": bool(m.get("has_img")), "t": m["created_at"]} for m in rows]})
 
 
 @routes.post("/api/chat/image")
@@ -816,6 +867,7 @@ async def settings_save(req):
             await sb("POST", "settings", {"on_conflict": "key"},
                      [{"key": "tp_" + k, "value": ""} for k in STORE_KINDS])
         _c.clear()
+    await audit(u["id"], "settings", None, ",".join(k for k in SETTING_KEYS if k in vals))
     return OK()
 
 
@@ -837,7 +889,10 @@ async def promo_save(req):
         raise web.HTTPBadRequest()
     pct = min(90, max(1, int(b.get("pct", 10))))
     uses = min(10000, max(1, int(b.get("uses", 1))))
-    await sb("POST", "promos", {"on_conflict": "code"}, {"code": code, "pct": pct, "uses_left": uses, "active": True})
+    days = b.get("days")
+    exp = (datetime.now(timezone.utc) + timedelta(days=min(365, max(1, int(days))))).isoformat() if days not in (None, "", 0) else None
+    await sb("POST", "promos", {"on_conflict": "code"},
+             {"code": code, "pct": pct, "uses_left": uses, "active": True, "expires_at": exp})
     return OK()
 
 
@@ -882,7 +937,7 @@ async def profile(req):
     pick = lambda r: {"name": r.get("name") or "Мутахассис", "avatar": r.get("avatar"), "about": r.get("about") or "",
                       "tag": r.get("tag") or "", "clan_tag": r.get("clan_tag") or ""}
     return web.json_response({
-        "me": {**pick(mine), "discount": mine.get("discount") or 0, "id": u["id"]},
+        "me": {**pick(mine), "discount": mine.get("discount") or 0, "loyalty": mine.get("loyalty_pct") or 0, "id": u["id"]},
         "bot": BOT_NAME,
         "master": {**pick(master), "avg": avg, "count": len(rv), "done": len(done),
                    "reviews": [{"rating": r["rating"], "text": r["text"], "name": (r.get("users") or {}).get("name", "")}
@@ -1005,8 +1060,31 @@ async def user_ban(req):
         raise web.HTTPBadRequest()
     on = bool(b.get("banned"))
     await sb("PATCH", "users", {"id": f"eq.{uid}"}, {"banned": on})
+    await audit(u["id"], "ban" if on else "unban", None, str(uid))
     (BANNED.add if on else BANNED.discard)(uid)
     return OK()
+
+
+@routes.post("/api/user/loyalty")
+async def user_loyalty(req):
+    b, u, adm = await ctx(req)
+    if not adm:
+        raise web.HTTPForbidden()
+    uid = int(b["user_id"])
+    pct = min(50, max(0, int(b.get("pct", 0))))
+    await sb("PATCH", "users", {"id": f"eq.{uid}"}, {"loyalty_pct": pct})
+    await audit(u["id"], "loyalty", None, f"{uid}: {pct}%")
+    if pct:
+        await tellk(uid, "loyalty", pct=pct)
+    return OK()
+
+
+@routes.post("/api/audit")
+async def audit_list(req):
+    b, u, adm = await ctx(req)
+    if not adm:
+        raise web.HTTPForbidden()
+    return web.json_response({"items": await sb("GET", "audit_log", {"order": "id.desc", "limit": "100"})})
 
 
 @routes.post("/api/export")
