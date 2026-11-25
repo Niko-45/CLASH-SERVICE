@@ -579,7 +579,11 @@ async def pay(req):
     if o["status"] != "unpaid" or not ok_img(img, 3_000_000):
         raise web.HTTPBadRequest()
     await sb("POST", "order_files", None, {"order_id": o["id"], "kind": "receipt", "data": img})
-    await sb("PATCH", "orders", {"id": f"eq.{o['id']}"}, {"status": "checking"})
+    pm = None
+    if b.get("method"):
+        r = await sb("GET", "pay_methods", {"id": f"eq.{int(b['method'])}"})
+        pm = r[0]["title"] if r else None
+    await sb("PATCH", "orders", {"id": f"eq.{o['id']}"}, {"status": "checking", "pay_method": pm})
     await tellk(ADMIN_ID, "receipt", id=o["id"])
     return OK()
 
@@ -1085,6 +1089,47 @@ async def audit_list(req):
     if not adm:
         raise web.HTTPForbidden()
     return web.json_response({"items": await sb("GET", "audit_log", {"order": "id.desc", "limit": "100"})})
+
+
+@routes.post("/api/paymethods")
+async def paymethods(req):
+    b, u, adm = await ctx(req)
+    p = {"order": "sort.asc,id.asc"}
+    if not adm:
+        p["active"] = "eq.true"
+    return web.json_response({"items": await sb("GET", "pay_methods", p)})
+
+
+@routes.post("/api/paymethods/save")
+async def paymethods_save(req):
+    b, u, adm = await ctx(req)
+    if not adm:
+        raise web.HTTPForbidden()
+    title = str(b.get("title", "")).strip()[:40]
+    if not title:
+        raise web.HTTPBadRequest()
+    try:
+        rate = float(b.get("rate") or 1)
+    except (TypeError, ValueError):
+        rate = 1.0
+    row = {"title": title, "country": str(b.get("country", "")).strip()[:30],
+           "currency": str(b.get("currency") or "сомонӣ").strip()[:12], "rate": rate if rate > 0 else 1.0,
+           "details": str(b.get("details", "")).strip()[:600], "active": bool(b.get("active", True))}
+    if b.get("id"):
+        await sb("PATCH", "pay_methods", {"id": f"eq.{int(b['id'])}"}, row)
+    else:
+        await sb("POST", "pay_methods", None, row)
+    await audit(u["id"], "settings", None, "pay: " + title)
+    return OK()
+
+
+@routes.post("/api/paymethods/del")
+async def paymethods_del(req):
+    b, u, adm = await ctx(req)
+    if not adm:
+        raise web.HTTPForbidden()
+    await sb("DELETE", "pay_methods", {"id": f"eq.{int(b['id'])}"})
+    return OK()
 
 
 @routes.post("/api/export")
