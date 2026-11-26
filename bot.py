@@ -663,12 +663,19 @@ async def cancel(req):
     if st in ("done", "cancelled", "rejected") or (not adm and st not in ("new", "priced", "unpaid", "checking")):
         raise web.HTTPBadRequest()
     reason = str(b.get("reason", "")).strip()[:200]
-    await sb("PATCH", "orders", {"id": f"eq.{o['id']}"}, {"status": "cancelled", "cancel_reason": reason or None})
-    await audit(u["id"], "cancel", o["id"], ("admin: " if adm else "client: ") + reason)
-    if adm:
-        await tellk(o["user_id"], "cancel_admin", id=o["id"], reason=reason or "—")
-    else:
-        await tellk(ADMIN_ID, "cancel_paid" if st == "checking" else "cancel_client", id=o["id"])
+    try:
+        await sb("PATCH", "orders", {"id": f"eq.{o['id']}"}, {"status": "cancelled", "cancel_reason": reason or None})
+    except web.HTTPException as e:  # агар сутуни cancel_reason намерасад, ҳамоно бекор мекунем
+        print("cancel: retry without reason:", e.text if hasattr(e, "text") else e)
+        await sb("PATCH", "orders", {"id": f"eq.{o['id']}"}, {"status": "cancelled"})
+    try:  # огоҳӣ ва журнал ҳеҷ гоҳ амалро вайрон намекунанд
+        await audit(u["id"], "cancel", o["id"], ("admin: " if adm else "client: ") + reason)
+        if adm:
+            await tellk(o["user_id"], "cancel_admin", id=o["id"], reason=reason or "—")
+        else:
+            await tellk(ADMIN_ID, "cancel_paid" if st == "checking" else "cancel_client", id=o["id"])
+    except Exception as e:
+        print("cancel notify:", e)
     return OK()
 
 
@@ -1114,7 +1121,15 @@ async def paymethods_save(req):
         rate = 1.0
     row = {"title": title, "country": str(b.get("country", "")).strip()[:30],
            "currency": str(b.get("currency") or "сомонӣ").strip()[:12], "rate": rate if rate > 0 else 1.0,
-           "details": str(b.get("details", "")).strip()[:600], "active": bool(b.get("active", True))}
+           "details": str(b.get("details", "")).strip()[:600], "active": bool(b.get("active", True)),
+           "icon": str(b.get("icon") or "").strip()[:8] or "💳"}
+    img = b.get("image")
+    if img:
+        if not ok_img(img, 150_000):
+            raise web.HTTPBadRequest()
+        row["image"] = img
+    elif b.get("clear_image"):
+        row["image"] = None
     if b.get("id"):
         await sb("PATCH", "pay_methods", {"id": f"eq.{int(b['id'])}"}, row)
     else:
